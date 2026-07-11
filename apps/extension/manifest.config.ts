@@ -16,6 +16,6 @@ export default defineManifest({
   side_panel: {
     default_path: "sidepanel.html",
   },
-  permissions: ["identity", "sidePanel", "storage"],
+  permissions: ["clipboardWrite", "identity", "sidePanel", "storage"],
   host_permissions: ["http://127.0.0.1:8787/*", "http://localhost:8787/*"],
 });

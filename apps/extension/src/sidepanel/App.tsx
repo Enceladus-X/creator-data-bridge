@@ -27,6 +27,10 @@ export function App() {
     : null;
 
   const primaryAction = () => {
+    if (!connection?.configured) {
+      openDashboard("settings");
+      return;
+    }
     if (connection?.connected) {
       void sync(range);
     } else {
@@ -44,7 +48,12 @@ export function App() {
           <strong>Creator Data Bridge</strong>
           <span>{snapshot?.account.title ?? "통합 채널 분석"}</span>
         </div>
-        <button className="icon-button" type="button" title="전체 대시보드" onClick={openDashboard}>
+        <button
+          className="icon-button"
+          type="button"
+          title="전체 대시보드"
+          onClick={() => openDashboard()}
+        >
           <LayoutDashboard size={18} />
         </button>
       </header>
@@ -65,7 +74,7 @@ export function App() {
         <button
           className="primary-button"
           type="button"
-          disabled={loading || !connection?.configured || syncing || connecting}
+          disabled={loading || syncing || connecting}
           onClick={primaryAction}
         >
           <RefreshCw size={16} className={syncing ? "spinning" : ""} />
@@ -73,9 +82,11 @@ export function App() {
             ? "동기화 중"
             : connecting
               ? "연결 확인 중"
-              : connection?.connected
-                ? "모두 동기화"
-                : "YouTube 연결"}
+              : !connection?.configured
+                ? "설정 열기"
+                : connection.connected
+                  ? "모두 동기화"
+                  : "YouTube 연결"}
         </button>
       </section>
 
@@ -134,17 +145,19 @@ export function App() {
                     {isYouTube && connection?.connected ? snapshot?.account.title : platform.detail}
                   </span>
                 </div>
-                <button
-                  className="connect-button"
-                  type="button"
-                  disabled={!isYouTube || !connection?.configured || syncing || connecting}
-                  onClick={primaryAction}
-                >
-                  {buttonLabel}
-                  {isYouTube && !connection?.connected && connection?.configured && (
-                    <ArrowUpRight size={14} />
-                  )}
-                </button>
+                {isYouTube ? (
+                  <button
+                    className="connect-button"
+                    type="button"
+                    disabled={loading || syncing || connecting}
+                    onClick={primaryAction}
+                  >
+                    {buttonLabel}
+                    {!connection?.connected && <ArrowUpRight size={14} />}
+                  </button>
+                ) : (
+                  <span className="planned-badge">예정</span>
+                )}
               </article>
             );
           })}
@@ -156,7 +169,7 @@ export function App() {
         <span>
           API {apiState === "online" ? "온라인" : apiState === "checking" ? "확인 중" : "오프라인"}
         </span>
-        <button type="button" onClick={openDashboard}>
+        <button type="button" onClick={() => openDashboard()}>
           상세 보기
         </button>
       </footer>

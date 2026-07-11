@@ -1,7 +1,10 @@
 import type { YouTubeDashboardSnapshot } from "@creator-data-bridge/contracts";
 import {
   BarChart3,
+  Check,
+  Clipboard,
   DatabaseZap,
+  ExternalLink,
   FileDown,
   FileJson,
   LayoutDashboard,
@@ -13,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useApiHealth, useYouTubeDashboard } from "../shared/api";
-import { downloadJson } from "../shared/chrome";
+import { copyText, downloadJson } from "../shared/chrome";
 import { platforms } from "../shared/platforms";
 
 const ranges = [7, 28, 90] as const;
@@ -24,7 +27,19 @@ const views = [
   { id: "exports", label: "내보내기", icon: FileDown },
 ] as const;
 
-type ViewId = (typeof views)[number]["id"];
+type ViewId = (typeof views)[number]["id"] | "connections" | "settings";
+
+const redirectUri = "http://127.0.0.1:8787/v1/oauth/youtube/callback";
+const envTemplate = `GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=${redirectUri}
+TOKEN_ENCRYPTION_KEY=64-character-hex-value`;
+
+function viewLabel(view: ViewId) {
+  if (view === "connections") return "연결 관리";
+  if (view === "settings") return "설정";
+  return views.find((item) => item.id === view)?.label;
+}
 
 const numberFormatter = new Intl.NumberFormat("ko-KR", {
   notation: "compact",
@@ -111,9 +126,23 @@ function TrendPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null })
   );
 }
 
-function ExportPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null }) {
+function ExportPanel({
+  snapshot,
+  onSetup,
+}: {
+  snapshot: YouTubeDashboardSnapshot | null;
+  onSetup: () => void;
+}) {
   if (!snapshot) {
-    return <div className="data-empty">내보낼 동기화 데이터 없음</div>;
+    return (
+      <div className="data-empty actionable-empty">
+        <span>내보낼 동기화 데이터가 없습니다.</span>
+        <button className="secondary-button" type="button" onClick={onSetup}>
+          <Settings size={15} />
+          YouTube 설정
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -139,11 +168,81 @@ function ExportPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null }
   );
 }
 
+function SetupPanel({ onRetry }: { onRetry: () => void }) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+
+  const copyEnvironment = async () => {
+    const copied = await copyText(envTemplate);
+    setCopyState(copied ? "copied" : "failed");
+    window.setTimeout(() => setCopyState("idle"), 1800);
+  };
+
+  return (
+    <div className="setup-panel">
+      <div className="setup-intro">
+        <Settings size={22} />
+        <div>
+          <strong>Google OAuth 연결 설정</strong>
+          <span>자격증명은 확장 프로그램이 아니라 로컬 API의 .env에만 저장됩니다.</span>
+        </div>
+      </div>
+      <ol className="setup-steps">
+        <li>
+          <span>1</span>
+          <div>
+            <strong>Google Cloud에서 API 활성화</strong>
+            <small>YouTube Data API v3와 YouTube Analytics API를 활성화합니다.</small>
+          </div>
+        </li>
+        <li>
+          <span>2</span>
+          <div>
+            <strong>Web application OAuth 클라이언트 생성</strong>
+            <small>승인된 리디렉션 URI: {redirectUri}</small>
+          </div>
+        </li>
+        <li>
+          <span>3</span>
+          <div>
+            <strong>저장소 루트의 .env 입력 후 API 재시작</strong>
+            <small>암호화 키는 pnpm secrets:generate 명령으로 생성합니다.</small>
+          </div>
+        </li>
+      </ol>
+      <div className="setup-actions">
+        <a
+          className="secondary-button"
+          href="https://console.cloud.google.com/apis/credentials"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink size={15} />
+          Google Cloud
+        </a>
+        <button className="secondary-button" type="button" onClick={() => void copyEnvironment()}>
+          {copyState === "copied" ? <Check size={15} /> : <Clipboard size={15} />}
+          {copyState === "copied"
+            ? "복사됨"
+            : copyState === "failed"
+              ? "복사 실패"
+              : "환경변수 템플릿 복사"}
+        </button>
+        <button className="primary-button" type="button" onClick={onRetry}>
+          <RefreshCw size={15} />
+          설정 다시 확인
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const [range, setRange] = useState<(typeof ranges)[number]>(28);
-  const [activeView, setActiveView] = useState<ViewId>("overview");
+  const [activeView, setActiveView] = useState<ViewId>(() =>
+    window.location.hash === "#settings" ? "settings" : "overview",
+  );
   const apiState = useApiHealth();
-  const { data, loading, syncing, connecting, error, connect, sync, disconnect } =
+  const { data, loading, syncing, connecting, error, refresh, connect, sync, disconnect } =
     useYouTubeDashboard();
   const connection = data?.connection;
   const snapshot = data?.snapshot ?? null;
@@ -159,6 +258,10 @@ export function App() {
       : "연결 대기";
 
   const primaryAction = () => {
+    if (!connection?.configured) {
+      setActiveView("settings");
+      return;
+    }
     if (connection?.connected) {
       void sync(range);
     } else {
@@ -200,12 +303,17 @@ export function App() {
           <button
             className="utility-button"
             type="button"
-            onClick={() => setActiveView("overview")}
+            onClick={() => setActiveView("connections")}
           >
             <Link2 size={17} />
             연결 관리
           </button>
-          <button className="utility-button" type="button" title="로컬 설정">
+          <button
+            className={`utility-button ${activeView === "settings" ? "active" : ""}`}
+            type="button"
+            title="로컬 설정"
+            onClick={() => setActiveView("settings")}
+          >
             <Settings size={17} />
             설정
           </button>
@@ -216,7 +324,7 @@ export function App() {
         <header className="dashboard-header">
           <div>
             <span className="eyebrow">{snapshot?.account.title ?? "Workspace"}</span>
-            <h1>{views.find((view) => view.id === activeView)?.label}</h1>
+            <h1>{viewLabel(activeView)}</h1>
           </div>
           <div className="header-actions">
             <div className="segmented range-control">
@@ -234,7 +342,7 @@ export function App() {
             <button
               className="primary-button sync-button"
               type="button"
-              disabled={loading || !connection?.configured || syncing || connecting}
+              disabled={loading || syncing || connecting}
               onClick={primaryAction}
             >
               <RefreshCw size={16} className={syncing ? "spinning" : ""} />
@@ -242,16 +350,21 @@ export function App() {
                 ? "동기화 중"
                 : connecting
                   ? "연결 확인 중"
-                  : connection?.connected
-                    ? "모두 동기화"
-                    : "YouTube 연결"}
+                  : !connection?.configured
+                    ? "Google OAuth 설정"
+                    : connection.connected
+                      ? "모두 동기화"
+                      : "YouTube 연결"}
             </button>
           </div>
         </header>
 
-        {(!connection?.configured || error) && (
+        {(!connection?.configured || error) && activeView !== "settings" && (
           <div className={`notice-band ${error ? "error" : ""}`}>
-            {error ?? "Google OAuth 미설정 · 환경변수 상태 확인 필요"}
+            <span>{error ?? "Google OAuth 설정이 필요합니다."}</span>
+            <button type="button" onClick={() => setActiveView("settings")}>
+              설정 열기
+            </button>
           </div>
         )}
 
@@ -284,7 +397,7 @@ export function App() {
           <div className="workspace-primary">
             <div className="section-title">
               <div>
-                <h2>{views.find((view) => view.id === activeView)?.label}</h2>
+                <h2>{viewLabel(activeView)}</h2>
                 <span>
                   {snapshot ? `${snapshot.periodStart}–${snapshot.periodEnd}` : "동기화 대기"}
                 </span>
@@ -325,18 +438,22 @@ export function App() {
                       >
                         {stateText}
                       </span>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        disabled={!isYouTube || !connection?.configured || syncing || connecting}
-                        onClick={primaryAction}
-                      >
-                        {isYouTube && connection?.connected
-                          ? "동기화"
-                          : isYouTube
-                            ? "연결"
-                            : "예정"}
-                      </button>
+                      {isYouTube ? (
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          disabled={loading || syncing || connecting}
+                          onClick={primaryAction}
+                        >
+                          {connection?.connected
+                            ? "동기화"
+                            : connection?.configured
+                              ? "연결"
+                              : "설정"}
+                        </button>
+                      ) : (
+                        <span className="planned-badge">예정</span>
+                      )}
                     </div>
                   );
                 })}
@@ -344,7 +461,30 @@ export function App() {
             )}
             {activeView === "content" && <ContentPanel snapshot={snapshot} />}
             {activeView === "trends" && <TrendPanel snapshot={snapshot} />}
-            {activeView === "exports" && <ExportPanel snapshot={snapshot} />}
+            {activeView === "exports" && (
+              <ExportPanel snapshot={snapshot} onSetup={() => setActiveView("settings")} />
+            )}
+            {activeView === "connections" && (
+              <div className="connection-panel">
+                <div>
+                  <strong>YouTube</strong>
+                  <span>{connectionLabel}</span>
+                </div>
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={loading || syncing || connecting}
+                  onClick={primaryAction}
+                >
+                  {connection?.connected
+                    ? "지금 동기화"
+                    : connection?.configured
+                      ? "YouTube 연결"
+                      : "연결 설정"}
+                </button>
+              </div>
+            )}
+            {activeView === "settings" && <SetupPanel onRetry={() => void refresh()} />}
           </div>
 
           <aside className="activity-panel">
