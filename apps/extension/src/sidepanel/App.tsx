@@ -28,7 +28,7 @@ export function App() {
 
   const primaryAction = () => {
     if (!connection?.configured) {
-      openDashboard("settings");
+      openDashboard("settings/youtube");
       return;
     }
     if (connection?.connected) {
@@ -160,7 +160,14 @@ export function App() {
                     {!connection?.connected && <ArrowUpRight size={14} />}
                   </button>
                 ) : (
-                  <span className="planned-badge">예정</span>
+                  <button
+                    className="connect-button guide-link"
+                    type="button"
+                    onClick={() => openDashboard(`settings/${platform.id}`)}
+                  >
+                    안내
+                    <ArrowUpRight size={14} />
+                  </button>
                 )}
               </article>
             );

@@ -70,4 +70,4 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 
 ## 현재 범위
 
-YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. Google Cloud 자격증명을 설정하면 본인 채널의 실제 데이터를 수집할 수 있습니다. Instagram, TikTok, X connector와 PostgreSQL 저장소는 다음 단계입니다. 게시·댓글·DM 관리와 비공식 스크래핑은 MVP 범위에 포함하지 않습니다.
+YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. Google Cloud 자격증명을 설정하면 본인 채널의 실제 데이터를 수집할 수 있습니다. 설정 화면은 YouTube, Instagram, TikTok, X의 계정 조건, 권한, 심사, callback과 환경변수를 플랫폼별 단계로 안내합니다. Instagram, TikTok, X connector와 PostgreSQL 저장소는 다음 단계입니다. 게시·댓글·DM 관리와 비공식 스크래핑은 MVP 범위에 포함하지 않습니다.

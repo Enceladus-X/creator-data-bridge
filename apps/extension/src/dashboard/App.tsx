@@ -1,4 +1,4 @@
-import type { YouTubeDashboardSnapshot } from "@creator-data-bridge/contracts";
+import type { Platform, YouTubeDashboardSnapshot } from "@creator-data-bridge/contracts";
 import {
   BarChart3,
   Check,
@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useApiHealth, useYouTubeDashboard } from "../shared/api";
 import { copyText, downloadJson } from "../shared/chrome";
 import { platforms } from "../shared/platforms";
+import { getSetupGuide, platformSetupGuides } from "../shared/setup-guides";
 
 const ranges = [7, 28, 90] as const;
 const views = [
@@ -29,12 +30,6 @@ const views = [
 ] as const;
 
 type ViewId = (typeof views)[number]["id"] | "connections" | "settings";
-
-const redirectUri = "http://127.0.0.1:8787/v1/oauth/youtube/callback";
-const envTemplate = `GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=${redirectUri}
-TOKEN_ENCRYPTION_KEY=64-character-hex-value`;
 
 function viewLabel(view: ViewId) {
   if (view === "connections") return "연결 관리";
@@ -170,10 +165,28 @@ function ExportPanel({
 }
 
 function SetupPanel({ onRetry }: { onRetry: () => void }) {
+  const initialPlatform = window.location.hash.split("/")[1] as Platform | undefined;
+  const [activePlatform, setActivePlatform] = useState<Platform>(
+    initialPlatform && platformSetupGuides.some((guide) => guide.id === initialPlatform)
+      ? initialPlatform
+      : "youtube",
+  );
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const guide = getSetupGuide(activePlatform);
+  const platform = platforms.find((item) => item.id === activePlatform);
+  if (!platform) {
+    throw new Error(`Platform metadata is missing for ${activePlatform}.`);
+  }
+  const PlatformIcon = platform.icon;
+
+  const selectPlatform = (nextPlatform: Platform) => {
+    setActivePlatform(nextPlatform);
+    setCopyState("idle");
+    window.history.replaceState(null, "", `#settings/${nextPlatform}`);
+  };
 
   const copyEnvironment = async () => {
-    const copied = await copyText(envTemplate);
+    const copied = await copyText(guide.environmentTemplate);
     setCopyState(copied ? "copied" : "failed");
     window.setTimeout(() => setCopyState("idle"), 1800);
   };
@@ -183,65 +196,138 @@ function SetupPanel({ onRetry }: { onRetry: () => void }) {
       <div className="setup-intro">
         <Settings size={22} />
         <div>
-          <strong>Google OAuth 연결 설정</strong>
-          <span>자격증명은 확장 프로그램이 아니라 로컬 API의 .env에만 저장됩니다.</span>
+          <strong>플랫폼 연결 준비</strong>
+          <span>계정 조건부터 권한, 심사, 환경변수까지 플랫폼별 순서대로 안내합니다.</span>
         </div>
       </div>
-      <div className="scope-note">
-        <Info size={17} />
-        <div>
-          <strong>현재 자동 수집 범위는 YouTube입니다.</strong>
-          <span>
-            Instagram, TikTok, X는 각각 별도 개발자 앱과 OAuth 연결이 필요하며 아직 구현 예정입니다.
+
+      <div className="setup-platform-tabs" role="tablist" aria-label="설정할 플랫폼">
+        {platformSetupGuides.map((item) => {
+          const platformItem = platforms.find((candidate) => candidate.id === item.id);
+          if (!platformItem) return null;
+          const Icon = platformItem.icon;
+          return (
+            <button
+              id={`setup-tab-${item.id}`}
+              type="button"
+              role="tab"
+              aria-selected={activePlatform === item.id}
+              aria-controls={`setup-panel-${item.id}`}
+              className={activePlatform === item.id ? "active" : ""}
+              onClick={() => selectPlatform(item.id)}
+              key={item.id}
+            >
+              <span style={{ color: platformItem.color, backgroundColor: platformItem.tint }}>
+                <Icon size={18} />
+              </span>
+              <strong>{platformItem.label}</strong>
+              <small>{item.availability === "available" ? "사용 가능" : "구현 전"}</small>
+            </button>
+          );
+        })}
+      </div>
+
+      <section
+        id={`setup-panel-${guide.id}`}
+        role="tabpanel"
+        aria-labelledby={`setup-tab-${guide.id}`}
+        className="setup-guide"
+      >
+        <div className="setup-guide-heading">
+          <span
+            className="platform-icon"
+            style={{ color: platform.color, backgroundColor: platform.tint }}
+          >
+            <PlatformIcon size={20} />
+          </span>
+          <div>
+            <h3>{guide.title}</h3>
+            <p>{guide.summary}</p>
+          </div>
+          <span className={`setup-availability ${guide.availability}`}>
+            {guide.availabilityLabel}
           </span>
         </div>
-      </div>
-      <ol className="setup-steps">
-        <li>
-          <span>1</span>
+
+        <div className={`scope-note ${guide.availability}`}>
+          <Info size={17} />
           <div>
-            <strong>Google Cloud에서 API 활성화</strong>
-            <small>YouTube Data API v3와 YouTube Analytics API를 활성화합니다.</small>
+            <strong>{guide.availabilityLabel}</strong>
+            <span>{guide.availabilityDetail}</span>
           </div>
-        </li>
-        <li>
-          <span>2</span>
+        </div>
+
+        <dl className="setup-facts">
           <div>
-            <strong>Web application OAuth 클라이언트 생성</strong>
-            <small>승인된 리디렉션 URI: {redirectUri}</small>
+            <dt>계정 조건</dt>
+            <dd>{guide.accountRequirement}</dd>
           </div>
-        </li>
-        <li>
-          <span>3</span>
           <div>
-            <strong>저장소 루트의 .env 입력 후 API 재시작</strong>
-            <small>암호화 키는 pnpm secrets:generate 명령으로 생성합니다.</small>
+            <dt>필요 권한</dt>
+            <dd className="setup-chips">
+              {guide.scopes.map((scope) => (
+                <code key={scope}>{scope}</code>
+              ))}
+            </dd>
           </div>
-        </li>
-      </ol>
-      <div className="setup-actions">
-        <a
-          className="secondary-button"
-          href="https://console.cloud.google.com/apis/credentials"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <ExternalLink size={15} />
-          Google Cloud
-        </a>
-        <button className="secondary-button" type="button" onClick={() => void copyEnvironment()}>
-          {copyState === "copied" ? <Check size={15} /> : <Clipboard size={15} />}
-          {copyState === "copied"
-            ? "복사됨"
-            : copyState === "failed"
-              ? "복사 실패"
-              : "환경변수 템플릿 복사"}
-        </button>
-        <button className="primary-button" type="button" onClick={onRetry}>
-          <RefreshCw size={15} />
-          OAuth 상태 확인
-        </button>
-      </div>
+          <div>
+            <dt>가져올 데이터</dt>
+            <dd className="setup-chips outputs">
+              {guide.outputs.map((output) => (
+                <span key={output}>{output}</span>
+              ))}
+            </dd>
+          </div>
+        </dl>
+
+        <ol className="setup-steps">
+          {guide.steps.map((step, index) => (
+            <li key={step.title}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <small>{step.detail}</small>
+                {step.value && <code className="setup-value">{step.value}</code>}
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="setup-actions">
+          <a
+            className="secondary-button"
+            href={guide.developerUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={15} />
+            개발자 콘솔
+          </a>
+          <a
+            className="secondary-button"
+            href={guide.documentationUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={15} />
+            공식 문서
+          </a>
+          <button className="secondary-button" type="button" onClick={() => void copyEnvironment()}>
+            {copyState === "copied" ? <Check size={15} /> : <Clipboard size={15} />}
+            {copyState === "copied"
+              ? "복사됨"
+              : copyState === "failed"
+                ? "복사 실패"
+                : ".env 템플릿 복사"}
+          </button>
+          {guide.id === "youtube" && (
+            <button className="primary-button" type="button" onClick={onRetry}>
+              <RefreshCw size={15} />
+              OAuth 상태 확인
+            </button>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -249,7 +335,7 @@ function SetupPanel({ onRetry }: { onRetry: () => void }) {
 export function App() {
   const [range, setRange] = useState<(typeof ranges)[number]>(28);
   const [activeView, setActiveView] = useState<ViewId>(() =>
-    window.location.hash === "#settings" ? "settings" : "overview",
+    window.location.hash.startsWith("#settings") ? "settings" : "overview",
   );
   const apiState = useApiHealth();
   const { data, loading, syncing, connecting, error, refresh, connect, sync, disconnect } =
@@ -269,6 +355,7 @@ export function App() {
 
   const primaryAction = () => {
     if (!connection?.configured) {
+      window.history.replaceState(null, "", "#settings/youtube");
       setActiveView("settings");
       return;
     }
@@ -279,9 +366,14 @@ export function App() {
     }
   };
 
+  const openPlatformSetup = (platform: Platform) => {
+    window.history.replaceState(null, "", `#settings/${platform}`);
+    setActiveView("settings");
+  };
+
   const sectionSubtitle =
     activeView === "settings"
-      ? "YouTube API 연결 준비"
+      ? "플랫폼별 API 연결 준비"
       : activeView === "connections"
         ? "플랫폼별 계정 연결"
         : snapshot
@@ -347,49 +439,49 @@ export function App() {
           </div>
           <div className="header-actions">
             {activeView !== "settings" && (
-              <fieldset className="segmented range-control" aria-label="YouTube 데이터 수집 기간">
-                {ranges.map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    aria-pressed={range === days}
-                    onClick={() => setRange(days)}
-                  >
-                    {days}일
-                  </button>
-                ))}
-              </fieldset>
+              <>
+                <fieldset className="segmented range-control" aria-label="YouTube 데이터 수집 기간">
+                  {ranges.map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      aria-pressed={range === days}
+                      onClick={() => setRange(days)}
+                    >
+                      {days}일
+                    </button>
+                  ))}
+                </fieldset>
+                <button
+                  className="primary-button sync-button"
+                  type="button"
+                  disabled={loading || syncing || connecting}
+                  onClick={primaryAction}
+                >
+                  {!connection?.configured ? (
+                    <Settings size={17} />
+                  ) : (
+                    <RefreshCw size={17} className={syncing ? "spinning" : ""} />
+                  )}
+                  {syncing
+                    ? "YouTube 데이터 가져오는 중"
+                    : connecting
+                      ? "YouTube 연결 확인 중"
+                      : !connection?.configured
+                        ? "Google OAuth 설정"
+                        : connection.connected
+                          ? "YouTube 데이터 새로고침"
+                          : "YouTube 연결"}
+                </button>
+              </>
             )}
-            <button
-              className="primary-button sync-button"
-              type="button"
-              disabled={loading || syncing || connecting}
-              onClick={activeView === "settings" ? () => void refresh() : primaryAction}
-            >
-              {activeView === "settings" || !connection?.configured ? (
-                <Settings size={17} />
-              ) : (
-                <RefreshCw size={17} className={syncing ? "spinning" : ""} />
-              )}
-              {activeView === "settings"
-                ? "OAuth 상태 확인"
-                : syncing
-                  ? "YouTube 데이터 가져오는 중"
-                  : connecting
-                    ? "YouTube 연결 확인 중"
-                    : !connection?.configured
-                      ? "Google OAuth 설정"
-                      : connection.connected
-                        ? "YouTube 데이터 새로고침"
-                        : "YouTube 연결"}
-            </button>
           </div>
         </header>
 
         {(!connection?.configured || error) && activeView !== "settings" && (
           <div className={`notice-band ${error ? "error" : ""}`}>
             <span>{error ?? "Google OAuth 설정이 필요합니다."}</span>
-            <button type="button" onClick={() => setActiveView("settings")}>
+            <button type="button" onClick={() => openPlatformSetup("youtube")}>
               설정 열기
             </button>
           </div>
@@ -420,7 +512,7 @@ export function App() {
           ))}
         </section>
 
-        <section className="workspace-grid">
+        <section className={`workspace-grid ${activeView === "settings" ? "settings-layout" : ""}`}>
           <div className="workspace-primary">
             <div className="section-title">
               <div>
@@ -445,7 +537,7 @@ export function App() {
                 {platforms.map((platform) => {
                   const Icon = platform.icon;
                   const isYouTube = platform.id === "youtube";
-                  const stateText = isYouTube ? connectionLabel : "계획됨";
+                  const stateText = isYouTube ? connectionLabel : "커넥터 구현 전";
                   return (
                     <div className="table-row" key={platform.id}>
                       <div className="table-platform">
@@ -477,7 +569,13 @@ export function App() {
                               : "설정"}
                         </button>
                       ) : (
-                        <span className="planned-badge">예정</span>
+                        <button
+                          className="secondary-button guide-button"
+                          type="button"
+                          onClick={() => openPlatformSetup(platform.id)}
+                        >
+                          준비 방법
+                        </button>
                       )}
                     </div>
                   );
@@ -487,80 +585,104 @@ export function App() {
             {activeView === "content" && <ContentPanel snapshot={snapshot} />}
             {activeView === "trends" && <TrendPanel snapshot={snapshot} />}
             {activeView === "exports" && (
-              <ExportPanel snapshot={snapshot} onSetup={() => setActiveView("settings")} />
+              <ExportPanel snapshot={snapshot} onSetup={() => openPlatformSetup("youtube")} />
             )}
             {activeView === "connections" && (
-              <div className="connection-panel">
-                <div>
-                  <strong>YouTube</strong>
-                  <span>{connectionLabel}</span>
-                </div>
-                <button
-                  className="primary-button"
-                  type="button"
-                  disabled={loading || syncing || connecting}
-                  onClick={primaryAction}
-                >
-                  {connection?.connected
-                    ? "YouTube 데이터 새로고침"
-                    : connection?.configured
-                      ? "YouTube 연결"
-                      : "연결 설정"}
-                </button>
+              <div className="connection-list">
+                {platforms.map((platform) => {
+                  const Icon = platform.icon;
+                  const isYouTube = platform.id === "youtube";
+                  return (
+                    <div className="connection-row" key={platform.id}>
+                      <span
+                        className="platform-icon"
+                        style={{ color: platform.color, backgroundColor: platform.tint }}
+                      >
+                        <Icon size={19} />
+                      </span>
+                      <div>
+                        <strong>{platform.label}</strong>
+                        <span>{isYouTube ? connectionLabel : "커넥터 구현 전"}</span>
+                      </div>
+                      <button
+                        className={
+                          isYouTube && connection?.configured
+                            ? "primary-button"
+                            : "secondary-button"
+                        }
+                        type="button"
+                        disabled={isYouTube && (loading || syncing || connecting)}
+                        onClick={() =>
+                          isYouTube ? primaryAction() : openPlatformSetup(platform.id)
+                        }
+                      >
+                        {isYouTube
+                          ? connection?.connected
+                            ? "데이터 새로고침"
+                            : connection?.configured
+                              ? "연결"
+                              : "준비 방법"
+                          : "준비 방법"}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {activeView === "settings" && <SetupPanel onRetry={() => void refresh()} />}
           </div>
 
-          <aside className="activity-panel">
-            <div className="section-title">
-              <div>
-                <h2>{snapshot?.account.title ?? "YouTube"}</h2>
-                <span>{connectionLabel}</span>
+          {activeView !== "settings" && (
+            <aside className="activity-panel">
+              <div className="section-title">
+                <div>
+                  <h2>{snapshot?.account.title ?? "YouTube"}</h2>
+                  <span>{connectionLabel}</span>
+                </div>
+                {connection?.connected && (
+                  <button
+                    className="icon-button"
+                    type="button"
+                    title="YouTube 연결 해제"
+                    onClick={() => {
+                      if (window.confirm("YouTube 연결과 저장된 스냅샷을 삭제할까요?")) {
+                        void disconnect();
+                      }
+                    }}
+                  >
+                    <Unlink size={16} />
+                  </button>
+                )}
               </div>
-              {connection?.connected && (
-                <button
-                  className="icon-button"
-                  type="button"
-                  title="YouTube 연결 해제"
-                  onClick={() => {
-                    if (window.confirm("YouTube 연결과 저장된 스냅샷을 삭제할까요?")) {
-                      void disconnect();
-                    }
-                  }}
-                >
-                  <Unlink size={16} />
-                </button>
+              {snapshot ? (
+                <div className="account-summary">
+                  <div>
+                    <span>현재 구독자</span>
+                    <strong>{formatNumber(snapshot.account.subscriberCount)}</strong>
+                  </div>
+                  <div>
+                    <span>누적 조회</span>
+                    <strong>{formatNumber(snapshot.account.totalViewCount)}</strong>
+                  </div>
+                  <div>
+                    <span>공개 영상</span>
+                    <strong>{formatNumber(snapshot.account.videoCount)}</strong>
+                  </div>
+                  {snapshot.warnings.map((item) => (
+                    <p className="warning-text" key={item.code}>
+                      {item.message}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-activity">
+                  <span className="activity-line" />
+                  <strong>{loading ? "상태 확인 중" : connectionLabel}</strong>
+                  <span>—</span>
+                </div>
               )}
-            </div>
-            {snapshot ? (
-              <div className="account-summary">
-                <div>
-                  <span>현재 구독자</span>
-                  <strong>{formatNumber(snapshot.account.subscriberCount)}</strong>
-                </div>
-                <div>
-                  <span>누적 조회</span>
-                  <strong>{formatNumber(snapshot.account.totalViewCount)}</strong>
-                </div>
-                <div>
-                  <span>공개 영상</span>
-                  <strong>{formatNumber(snapshot.account.videoCount)}</strong>
-                </div>
-                {snapshot.warnings.map((item) => (
-                  <p className="warning-text" key={item.code}>
-                    {item.message}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-activity">
-                <span className="activity-line" />
-                <strong>{loading ? "상태 확인 중" : connectionLabel}</strong>
-                <span>—</span>
-              </div>
-            )}
-          </aside>
+            </aside>
+          )}
         </section>
       </main>
     </div>

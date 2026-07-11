@@ -9,7 +9,12 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     "type" in message &&
     message.type === "OPEN_DASHBOARD"
   ) {
-    const view = "view" in message && message.view === "settings" ? "#settings" : "";
+    const view =
+      "view" in message &&
+      typeof message.view === "string" &&
+      /^settings(?:\/(?:youtube|instagram|tiktok|x))?$/.test(message.view)
+        ? `#${message.view}`
+        : "";
     void chrome.tabs.create({ url: chrome.runtime.getURL(`dashboard.html${view}`) });
   }
 });

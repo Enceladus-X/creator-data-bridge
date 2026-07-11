@@ -1,4 +1,11 @@
-export function openDashboard(view?: "settings") {
+type DashboardTarget =
+  | "settings"
+  | "settings/youtube"
+  | "settings/instagram"
+  | "settings/tiktok"
+  | "settings/x";
+
+export function openDashboard(view?: DashboardTarget) {
   const hash = view ? `#${view}` : "";
   if (typeof chrome !== "undefined" && chrome.runtime?.id) {
     void chrome.runtime.sendMessage({ type: "OPEN_DASHBOARD", view });
@@ -20,7 +27,15 @@ export function downloadJson(fileName: string, value: unknown) {
 
 export async function copyText(value: string) {
   try {
-    await navigator.clipboard.writeText(value);
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API is unavailable.");
+    }
+    await Promise.race([
+      navigator.clipboard.writeText(value),
+      new Promise<never>((_, reject) =>
+        window.setTimeout(() => reject(new Error("Clipboard write timed out.")), 750),
+      ),
+    ]);
     return true;
   } catch {
     const textarea = document.createElement("textarea");
