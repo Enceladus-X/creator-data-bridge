@@ -48,6 +48,16 @@ describe("API", () => {
     expect(response.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
+  it("reports missing YouTube OAuth configuration without a generic 500", async () => {
+    const app = await buildApp({ logger: false });
+    apps.push(app);
+
+    const response = await app.inject({ method: "POST", url: "/v1/youtube/connect" });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error.code).toBe("YOUTUBE_NOT_CONFIGURED");
+  });
+
   it("exposes YouTube connection state through the service boundary", async () => {
     const youtubeService: YouTubeServiceContract = {
       getDashboard: async () => ({
@@ -106,5 +116,41 @@ describe("API", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe("VALIDATION_ERROR");
     expect(syncCalled).toBe(false);
+  });
+
+  it("removes the authorization code from the visible callback URL", async () => {
+    let completed = false;
+    const youtubeService: YouTubeServiceContract = {
+      getDashboard: async () => ({
+        connection: {
+          platform: "youtube",
+          configured: true,
+          connected: true,
+          state: "connected",
+          lastConnectedAt: "2026-07-11T00:00:00Z",
+        },
+        snapshot: null,
+      }),
+      startConnection: async () => ({ authorizationUrl: "https://accounts.google.com/test" }),
+      completeConnection: async () => {
+        completed = true;
+      },
+      disconnect: async () => undefined,
+      sync: async () => {
+        throw new Error("not needed in this test");
+      },
+    };
+    const app = await buildApp({ youtubeService, logger: false });
+    apps.push(app);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/oauth/youtube/callback?code=secret-code&state=valid-state",
+    });
+
+    expect(response.statusCode).toBe(303);
+    expect(response.headers.location).toBe("/v1/oauth/youtube/complete");
+    expect(response.body).not.toContain("secret-code");
+    expect(completed).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { type PlatformCapability, platformCapabilitySchema } from "@creator-data-bridge/contracts";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
-import { z, ZodError } from "zod";
+import { ZodError, z } from "zod";
 import { type AppConfig, loadConfig } from "./config";
 import { AppError } from "./errors";
 import { YouTubeService, type YouTubeServiceContract } from "./youtube/youtube-service";
@@ -64,6 +64,14 @@ function completionPage() {
 </html>`;
 }
 
+function isHttpError(error: unknown): error is Error & { statusCode: number; code?: string } {
+  return (
+    error instanceof Error &&
+    "statusCode" in error &&
+    typeof (error as { statusCode?: unknown }).statusCode === "number"
+  );
+}
+
 export interface BuildAppOptions {
   config?: AppConfig;
   youtubeService?: YouTubeServiceContract;
@@ -92,6 +100,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     if (error instanceof AppError) {
       return reply.status(error.statusCode).send({
         error: { code: error.code, message: error.message },
+      });
+    }
+    if (isHttpError(error) && error.statusCode < 500) {
+      return reply.status(error.statusCode).send({
+        error: { code: error.code ?? "REQUEST_ERROR", message: error.message },
       });
     }
 

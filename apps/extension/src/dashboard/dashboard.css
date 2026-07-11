@@ -195,6 +195,7 @@ body {
 .workspace-grid {
   display: grid;
   max-width: 1180px;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 16px;
   margin: 18px auto 0;
@@ -202,6 +203,7 @@ body {
 
 .workspace-primary,
 .activity-panel {
+  min-width: 0;
   border: 1px solid #dededb;
   border-radius: 8px;
   background: #ffffff;
@@ -240,6 +242,7 @@ body {
 }
 
 .platform-table {
+  min-width: 0;
   padding: 0 18px 10px;
 }
 

@@ -24,9 +24,13 @@ export class ApiRequestError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers,
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;
@@ -132,7 +136,9 @@ export function useYouTubeDashboard() {
       }, 120_000);
     } catch (requestError) {
       setConnecting(false);
-      setError(requestError instanceof Error ? requestError.message : "연결을 시작하지 못했습니다.");
+      setError(
+        requestError instanceof Error ? requestError.message : "연결을 시작하지 못했습니다.",
+      );
     }
   }, [refresh]);
 

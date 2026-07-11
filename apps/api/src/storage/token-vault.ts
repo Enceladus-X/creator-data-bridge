@@ -41,18 +41,6 @@ export class TokenVault {
     private readonly encryptionKey: string | null,
   ) {}
 
-  async exists() {
-    try {
-      await readFile(this.filePath);
-      return true;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return false;
-      }
-      throw error;
-    }
-  }
-
   async read(): Promise<TokenRecord | null> {
     let serialized: string;
     try {
@@ -90,7 +78,10 @@ export class TokenVault {
     };
 
     await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, `${JSON.stringify(payload)}\n`, { encoding: "utf8", mode: 0o600 });
+    await writeFile(this.filePath, `${JSON.stringify(payload)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
   }
 
   async merge(tokens: OAuthTokens) {

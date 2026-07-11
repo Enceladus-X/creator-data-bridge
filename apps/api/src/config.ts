@@ -1,5 +1,5 @@
-import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const workspaceRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -40,8 +40,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       clientId: optional(env.GOOGLE_CLIENT_ID),
       clientSecret: optional(env.GOOGLE_CLIENT_SECRET),
       redirectUri:
-        env.GOOGLE_REDIRECT_URI?.trim() ||
-        "http://127.0.0.1:8787/v1/oauth/youtube/callback",
+        env.GOOGLE_REDIRECT_URI?.trim() || "http://127.0.0.1:8787/v1/oauth/youtube/callback",
       tokenEncryptionKey: optional(env.TOKEN_ENCRYPTION_KEY),
     },
   };

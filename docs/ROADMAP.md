@@ -15,7 +15,9 @@
 
 ## 현재 상태
 
-2026-07-11 기준으로 pnpm TypeScript 모노레포, 공통 Zod 계약, Chrome MV3 확장 셸, Fastify API, CI가 구성되었다. 다음 구현은 YouTube 실제 OAuth와 redacted API fixture 수집이다.
+2026-07-11 기준으로 pnpm TypeScript 모노레포, 공통 Zod 계약, Chrome MV3 확장 셸, Fastify API, CI가 구성되었다.
+
+YouTube OAuth, 로컬 암호화 token vault, Data/Analytics API 동기화, 일별 추이, 상위 콘텐츠, JSON 내보내기까지 구현되었다. 실제 Google OAuth 자격증명을 통한 실계정 smoke test와 redacted fixture 수집이 다음 검증 단계다.
 
 ## Phase 0: 기획과 API 스파이크
 
@@ -35,6 +37,10 @@
 - [x] MV3 사이드 패널 및 전체 대시보드 셸
 - [x] Fastify health/platform endpoint
 - [x] GitHub Actions CI와 공개 저장소 운영 템플릿
+- [x] YouTube Web OAuth callback과 CSRF state 검증
+- [x] AES-256-GCM token vault와 snapshot 저장
+- [x] YouTube Data/Analytics API 수집 서비스
+- [x] 실데이터 대시보드, 추이, 콘텐츠, JSON 내보내기
 
 완료 기준:
 

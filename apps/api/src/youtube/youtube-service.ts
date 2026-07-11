@@ -131,7 +131,7 @@ export class YouTubeService implements YouTubeServiceContract {
       throw new AppError(400, "INVALID_DATE_RANGE", "days must be between 1 and 365.");
     }
 
-    const { oauth, connectedAt } = await this.createAuthorizedClient();
+    const oauth = await this.createAuthorizedClient();
     const youtube = google.youtube({ version: "v3", auth: oauth });
     const analytics = google.youtubeAnalytics({ version: "v2", auth: oauth });
     const { startDate, endDate } = resolveDateRange(days);
@@ -219,9 +219,7 @@ export class YouTubeService implements YouTubeServiceContract {
       }
 
       const summaryRow = summaryRows[0];
-      const subscribersGained = summaryRow
-        ? numberValue(summaryRow.subscribersGained)
-        : null;
+      const subscribersGained = summaryRow ? numberValue(summaryRow.subscribersGained) : null;
       const subscribersLost = summaryRow ? numberValue(summaryRow.subscribersLost) : null;
       const topVideoIds = topRows.map((row) => String(row.video ?? "")).filter(Boolean);
       const videoMetadata = await this.getVideoMetadata(topVideoIds, youtube);
@@ -273,9 +271,7 @@ export class YouTubeService implements YouTubeServiceContract {
         },
         summary: {
           views: summaryRow ? numberValue(summaryRow.views) : null,
-          watchTimeMinutes: summaryRow
-            ? numberValue(summaryRow.estimatedMinutesWatched)
-            : null,
+          watchTimeMinutes: summaryRow ? numberValue(summaryRow.estimatedMinutesWatched) : null,
           averageViewDurationSeconds: summaryRow
             ? numberValue(summaryRow.averageViewDuration)
             : null,
@@ -296,15 +292,9 @@ export class YouTubeService implements YouTubeServiceContract {
       });
 
       await this.snapshotStore.write(snapshot);
-      await this.tokenVault.merge(oauth.credentials as OAuthTokens);
       return snapshot;
-    } catch (error) {
-      await this.tokenVault.merge(oauth.credentials as OAuthTokens);
-      throw error;
     } finally {
-      if (!(await this.tokenVault.exists())) {
-        await this.tokenVault.write(oauth.credentials as OAuthTokens, connectedAt);
-      }
+      await this.tokenVault.merge(oauth.credentials as OAuthTokens);
     }
   }
 
@@ -358,7 +348,7 @@ export class YouTubeService implements YouTubeServiceContract {
 
     const oauth = this.createOAuthClient();
     oauth.setCredentials(record.tokens);
-    return { oauth, connectedAt: record.connectedAt };
+    return oauth;
   }
 
   private async listUploadsSince(
@@ -398,10 +388,7 @@ export class YouTubeService implements YouTubeServiceContract {
     return uploads;
   }
 
-  private async getVideoMetadata(
-    videoIds: string[],
-    youtube: ReturnType<typeof google.youtube>,
-  ) {
+  private async getVideoMetadata(videoIds: string[], youtube: ReturnType<typeof google.youtube>) {
     const result = new Map<string, VideoMetadata>();
 
     for (let index = 0; index < videoIds.length; index += 50) {

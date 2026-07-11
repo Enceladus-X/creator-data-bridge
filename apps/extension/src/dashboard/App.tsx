@@ -65,7 +65,13 @@ function ContentPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null 
         <span>평균 시청</span>
       </div>
       {snapshot.topContent.map((content) => (
-        <a className="content-row" href={content.url} target="_blank" rel="noreferrer" key={content.id}>
+        <a
+          className="content-row"
+          href={content.url}
+          target="_blank"
+          rel="noreferrer"
+          key={content.id}
+        >
           <span className="content-title">
             {content.thumbnailUrl ? <img src={content.thumbnailUrl} alt="" /> : <span />}
             <strong>{content.title}</strong>
@@ -87,7 +93,7 @@ function TrendPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null })
 
   return (
     <div className="trend-panel">
-      <div className="trend-chart" aria-label="일별 조회수">
+      <div className="trend-chart" role="img" aria-label="일별 조회수">
         {points.map((point) => (
           <span
             key={point.day}
@@ -122,7 +128,9 @@ function ExportPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null }
       <button
         className="primary-button"
         type="button"
-        onClick={() => downloadJson(`youtube-${snapshot.periodEnd}-${snapshot.rangeDays}d.json`, snapshot)}
+        onClick={() =>
+          downloadJson(`youtube-${snapshot.periodEnd}-${snapshot.rangeDays}d.json`, snapshot)
+        }
       >
         <FileDown size={16} />
         JSON 저장
@@ -144,7 +152,6 @@ export function App() {
       (snapshot.summary.comments ?? 0) +
       (snapshot.summary.shares ?? 0)
     : null;
-  const canSync = connection?.connected === true && !syncing;
   const connectionLabel = !connection?.configured
     ? "설정 필요"
     : connection.connected
@@ -190,7 +197,11 @@ export function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button className="utility-button" type="button" onClick={() => setActiveView("overview")}>
+          <button
+            className="utility-button"
+            type="button"
+            onClick={() => setActiveView("overview")}
+          >
             <Link2 size={17} />
             연결 관리
           </button>
@@ -227,7 +238,13 @@ export function App() {
               onClick={primaryAction}
             >
               <RefreshCw size={16} className={syncing ? "spinning" : ""} />
-              {syncing ? "동기화 중" : connecting ? "연결 확인 중" : connection?.connected ? "모두 동기화" : "YouTube 연결"}
+              {syncing
+                ? "동기화 중"
+                : connecting
+                  ? "연결 확인 중"
+                  : connection?.connected
+                    ? "모두 동기화"
+                    : "YouTube 연결"}
             </button>
           </div>
         </header>
@@ -241,7 +258,8 @@ export function App() {
         <section className="health-band" aria-label="시스템 상태">
           <div>
             <span className={`status-dot ${apiState}`} />
-            API {apiState === "online" ? "온라인" : apiState === "checking" ? "확인 중" : "오프라인"}
+            API{" "}
+            {apiState === "online" ? "온라인" : apiState === "checking" ? "확인 중" : "오프라인"}
           </div>
           <div>YouTube {connectionLabel}</div>
           <div>마지막 동기화 {formatSyncedAt(snapshot?.lastSyncedAt)}</div>
@@ -302,7 +320,9 @@ export function App() {
                         <strong>{platform.label}</strong>
                       </div>
                       <span className="muted">{platform.detail}</span>
-                      <span className={`state-label ${isYouTube && connection?.connected ? "ready" : "planned"}`}>
+                      <span
+                        className={`state-label ${isYouTube && connection?.connected ? "ready" : "planned"}`}
+                      >
                         {stateText}
                       </span>
                       <button
@@ -311,7 +331,11 @@ export function App() {
                         disabled={!isYouTube || !connection?.configured || syncing || connecting}
                         onClick={primaryAction}
                       >
-                        {isYouTube && connection?.connected ? "동기화" : isYouTube ? "연결" : "예정"}
+                        {isYouTube && connection?.connected
+                          ? "동기화"
+                          : isYouTube
+                            ? "연결"
+                            : "예정"}
                       </button>
                     </div>
                   );

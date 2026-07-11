@@ -30,6 +30,7 @@ pnpm dev
 | --- | --- |
 | `pnpm dev` | API와 확장프로그램 개발 모드 실행 |
 | `pnpm lint` | Biome 정적 검사 |
+| `pnpm secrets:generate` | 로컬 token 암호화 키 생성 |
 | `pnpm typecheck` | 모든 workspace TypeScript 검사 |
 | `pnpm test` | 계약 및 API 테스트 |
 | `pnpm build` | 모든 workspace 프로덕션 빌드 |
@@ -63,9 +64,10 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 - [기술 아키텍처](docs/ARCHITECTURE.md)
 - [AI 내보내기 계약](docs/AI_EXPORT_CONTRACT.md)
 - [구현 로드맵](docs/ROADMAP.md)
+- [YouTube 연결 설정](docs/YOUTUBE_SETUP.md)
 - [기여 가이드](CONTRIBUTING.md)
 - [보안 정책](SECURITY.md)
 
 ## 현재 범위
 
-초기 UI와 API는 연결 상태를 보여주는 개발 골격입니다. OAuth callback, 영구 저장소, YouTube 실제 데이터 수집은 다음 구현 단계입니다. 게시·댓글·DM 관리와 비공식 스크래핑은 MVP 범위에 포함하지 않습니다.
+YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. Google Cloud 자격증명을 설정하면 본인 채널의 실제 데이터를 수집할 수 있습니다. Instagram, TikTok, X connector와 PostgreSQL 저장소는 다음 단계입니다. 게시·댓글·DM 관리와 비공식 스크래핑은 MVP 범위에 포함하지 않습니다.
