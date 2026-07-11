@@ -51,6 +51,22 @@ body {
   border-block: 1px solid #e5e5e2;
 }
 
+.panel-notice {
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border-left: 3px solid #b28a19;
+  color: #735a16;
+  background: #fff8dc;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.panel-notice.error {
+  border-left-color: #bc352f;
+  color: #852a26;
+  background: #fff0ef;
+}
+
 .metric-grid div {
   display: flex;
   min-height: 74px;

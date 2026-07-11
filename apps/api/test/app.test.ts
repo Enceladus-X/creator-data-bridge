@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app";
+import type { YouTubeServiceContract } from "../src/youtube/youtube-service";
 
 const apps: Awaited<ReturnType<typeof buildApp>>[] = [];
 
@@ -18,7 +19,7 @@ describe("API", () => {
     expect(response.json()).toMatchObject({
       status: "ok",
       service: "creator-data-bridge-api",
-      version: "0.1.0",
+      version: "0.2.0",
     });
   });
 
@@ -45,5 +46,65 @@ describe("API", () => {
     });
 
     expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("exposes YouTube connection state through the service boundary", async () => {
+    const youtubeService: YouTubeServiceContract = {
+      getDashboard: async () => ({
+        connection: {
+          platform: "youtube",
+          configured: true,
+          connected: false,
+          state: "disconnected",
+          lastConnectedAt: null,
+        },
+        snapshot: null,
+      }),
+      startConnection: async () => ({ authorizationUrl: "https://accounts.google.com/test" }),
+      completeConnection: async () => undefined,
+      disconnect: async () => undefined,
+      sync: async () => {
+        throw new Error("not needed in this test");
+      },
+    };
+    const app = await buildApp({ youtubeService, logger: false });
+    apps.push(app);
+
+    const statusResponse = await app.inject({ method: "GET", url: "/v1/youtube" });
+    const connectResponse = await app.inject({ method: "POST", url: "/v1/youtube/connect" });
+
+    expect(statusResponse.json().connection.state).toBe("disconnected");
+    expect(connectResponse.json().authorizationUrl).toContain("accounts.google.com");
+  });
+
+  it("rejects an invalid sync range before calling the connector", async () => {
+    let syncCalled = false;
+    const youtubeService: YouTubeServiceContract = {
+      getDashboard: async () => ({
+        connection: {
+          platform: "youtube",
+          configured: true,
+          connected: true,
+          state: "connected",
+          lastConnectedAt: "2026-07-11T00:00:00Z",
+        },
+        snapshot: null,
+      }),
+      startConnection: async () => ({ authorizationUrl: "https://accounts.google.com/test" }),
+      completeConnection: async () => undefined,
+      disconnect: async () => undefined,
+      sync: async () => {
+        syncCalled = true;
+        throw new Error("unexpected");
+      },
+    };
+    const app = await buildApp({ youtubeService, logger: false });
+    apps.push(app);
+
+    const response = await app.inject({ method: "POST", url: "/v1/youtube/sync?days=0" });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    expect(syncCalled).toBe(false);
   });
 });

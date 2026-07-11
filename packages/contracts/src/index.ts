@@ -90,3 +90,94 @@ export const syncRunSchema = z.object({
   completedAt: z.string().min(1).nullable(),
 });
 export type SyncRun = z.infer<typeof syncRunSchema>;
+
+export const connectionStateSchema = z.enum([
+  "not_configured",
+  "disconnected",
+  "connected",
+  "error",
+]);
+export type ConnectionState = z.infer<typeof connectionStateSchema>;
+
+export const youtubeConnectionSchema = z.object({
+  platform: z.literal("youtube"),
+  configured: z.boolean(),
+  connected: z.boolean(),
+  state: connectionStateSchema,
+  lastConnectedAt: z.string().nullable(),
+});
+export type YouTubeConnection = z.infer<typeof youtubeConnectionSchema>;
+
+export const dashboardAccountSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  thumbnailUrl: z.string().nullable(),
+  subscriberCount: z.number().nonnegative().nullable(),
+  totalViewCount: z.number().nonnegative(),
+  videoCount: z.number().nonnegative(),
+});
+export type DashboardAccount = z.infer<typeof dashboardAccountSchema>;
+
+export const dashboardSummarySchema = z.object({
+  views: z.number().nonnegative().nullable(),
+  watchTimeMinutes: z.number().nonnegative().nullable(),
+  averageViewDurationSeconds: z.number().nonnegative().nullable(),
+  subscribersGained: z.number().nonnegative().nullable(),
+  subscribersLost: z.number().nonnegative().nullable(),
+  subscriberNet: z.number().nullable(),
+  likes: z.number().nonnegative().nullable(),
+  comments: z.number().nonnegative().nullable(),
+  shares: z.number().nonnegative().nullable(),
+  contentPublished: z.number().nonnegative(),
+});
+export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
+
+export const dashboardDailyPointSchema = z.object({
+  day: z.string().min(1),
+  views: z.number().nonnegative(),
+  watchTimeMinutes: z.number().nonnegative(),
+  subscriberNet: z.number(),
+});
+export type DashboardDailyPoint = z.infer<typeof dashboardDailyPointSchema>;
+
+export const dashboardContentSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  url: z.string().url(),
+  thumbnailUrl: z.string().nullable(),
+  publishedAt: z.string().nullable(),
+  views: z.number().nonnegative(),
+  watchTimeMinutes: z.number().nonnegative(),
+  averageViewDurationSeconds: z.number().nonnegative(),
+  likes: z.number().nonnegative(),
+  comments: z.number().nonnegative(),
+  shares: z.number().nonnegative(),
+  subscribersGained: z.number().nonnegative(),
+});
+export type DashboardContent = z.infer<typeof dashboardContentSchema>;
+
+export const dashboardWarningSchema = z.object({
+  code: z.string().min(1),
+  message: z.string().min(1),
+});
+export type DashboardWarning = z.infer<typeof dashboardWarningSchema>;
+
+export const youtubeDashboardSnapshotSchema = z.object({
+  platform: z.literal("youtube"),
+  rangeDays: z.number().int().min(1).max(365),
+  periodStart: z.string().min(1),
+  periodEnd: z.string().min(1),
+  lastSyncedAt: z.string().min(1),
+  account: dashboardAccountSchema,
+  summary: dashboardSummarySchema,
+  daily: z.array(dashboardDailyPointSchema),
+  topContent: z.array(dashboardContentSchema),
+  warnings: z.array(dashboardWarningSchema),
+});
+export type YouTubeDashboardSnapshot = z.infer<typeof youtubeDashboardSnapshotSchema>;
+
+export const youtubeDashboardResponseSchema = z.object({
+  connection: youtubeConnectionSchema,
+  snapshot: youtubeDashboardSnapshotSchema.nullable(),
+});
+export type YouTubeDashboardResponse = z.infer<typeof youtubeDashboardResponseSchema>;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { metricObservationSchema, platformCapabilitySchema } from "../src/index";
+import {
+  metricObservationSchema,
+  platformCapabilitySchema,
+  youtubeDashboardResponseSchema,
+} from "../src/index";
 
 describe("metricObservationSchema", () => {
   const baseObservation = {
@@ -46,5 +50,22 @@ describe("platformCapabilitySchema", () => {
     });
 
     expect(capability.platform).toBe("youtube");
+  });
+});
+
+describe("youtubeDashboardResponseSchema", () => {
+  it("accepts a disconnected account without a snapshot", () => {
+    const response = youtubeDashboardResponseSchema.parse({
+      connection: {
+        platform: "youtube",
+        configured: true,
+        connected: false,
+        state: "disconnected",
+        lastConnectedAt: null,
+      },
+      snapshot: null,
+    });
+
+    expect(response.snapshot).toBeNull();
   });
 });

@@ -1,16 +1,37 @@
 import { ArrowUpRight, DatabaseZap, LayoutDashboard, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { useApiHealth } from "../shared/api";
+import { useApiHealth, useYouTubeDashboard } from "../shared/api";
+import { openDashboard } from "../shared/chrome";
 import { platforms } from "../shared/platforms";
 
 const ranges = [7, 28, 90] as const;
+const numberFormatter = new Intl.NumberFormat("ko-KR", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function formatNumber(value: number | null | undefined) {
+  return value === null || value === undefined ? "—" : numberFormatter.format(value);
+}
 
 export function App() {
   const [range, setRange] = useState<(typeof ranges)[number]>(28);
   const apiState = useApiHealth();
+  const { data, loading, syncing, connecting, error, connect, sync } = useYouTubeDashboard();
+  const connection = data?.connection;
+  const snapshot = data?.snapshot;
+  const engagement = snapshot?.summary
+    ? (snapshot.summary.likes ?? 0) +
+      (snapshot.summary.comments ?? 0) +
+      (snapshot.summary.shares ?? 0)
+    : null;
 
-  const openDashboard = () => {
-    void chrome.runtime.sendMessage({ type: "OPEN_DASHBOARD" });
+  const primaryAction = () => {
+    if (connection?.connected) {
+      void sync(range);
+    } else {
+      void connect();
+    }
   };
 
   return (
@@ -21,7 +42,7 @@ export function App() {
         </div>
         <div className="panel-title">
           <strong>Creator Data Bridge</strong>
-          <span>통합 채널 분석</span>
+          <span>{snapshot?.account.title ?? "통합 채널 분석"}</span>
         </div>
         <button className="icon-button" type="button" title="전체 대시보드" onClick={openDashboard}>
           <LayoutDashboard size={18} />
@@ -41,28 +62,45 @@ export function App() {
             </button>
           ))}
         </div>
-        <button className="primary-button" type="button" onClick={openDashboard}>
-          <RefreshCw size={16} />
-          모두 동기화
+        <button
+          className="primary-button"
+          type="button"
+          disabled={loading || !connection?.configured || syncing || connecting}
+          onClick={primaryAction}
+        >
+          <RefreshCw size={16} className={syncing ? "spinning" : ""} />
+          {syncing
+            ? "동기화 중"
+            : connecting
+              ? "연결 확인 중"
+              : connection?.connected
+                ? "모두 동기화"
+                : "YouTube 연결"}
         </button>
       </section>
+
+      {(!connection?.configured || error) && (
+        <div className={`panel-notice ${error ? "error" : ""}`}>
+          {error ?? "Google OAuth 미설정"}
+        </div>
+      )}
 
       <section className="metric-grid" aria-label="핵심 지표">
         <div>
           <span>조회·재생</span>
-          <strong>—</strong>
+          <strong>{formatNumber(snapshot?.summary.views)}</strong>
         </div>
         <div>
           <span>참여</span>
-          <strong>—</strong>
+          <strong>{formatNumber(engagement)}</strong>
         </div>
         <div>
-          <span>팔로워 순증</span>
-          <strong>—</strong>
+          <span>구독자 순증</span>
+          <strong>{formatNumber(snapshot?.summary.subscriberNet)}</strong>
         </div>
         <div>
           <span>게시물</span>
-          <strong>—</strong>
+          <strong>{formatNumber(snapshot?.summary.contentPublished)}</strong>
         </div>
       </section>
 
@@ -74,6 +112,14 @@ export function App() {
         <div className="platform-list">
           {platforms.map((platform) => {
             const Icon = platform.icon;
+            const isYouTube = platform.id === "youtube";
+            const buttonLabel = !isYouTube
+              ? "예정"
+              : !connection?.configured
+                ? "설정"
+                : connection.connected
+                  ? "동기화"
+                  : "연결";
             return (
               <article className="platform-row" key={platform.id}>
                 <div
@@ -84,11 +130,20 @@ export function App() {
                 </div>
                 <div className="platform-copy">
                   <strong>{platform.label}</strong>
-                  <span>{platform.detail}</span>
+                  <span>
+                    {isYouTube && connection?.connected ? snapshot?.account.title : platform.detail}
+                  </span>
                 </div>
-                <button className="connect-button" type="button" onClick={openDashboard}>
-                  {platform.state === "ready" ? "연결" : "예정"}
-                  {platform.state === "ready" && <ArrowUpRight size={14} />}
+                <button
+                  className="connect-button"
+                  type="button"
+                  disabled={!isYouTube || !connection?.configured || syncing || connecting}
+                  onClick={primaryAction}
+                >
+                  {buttonLabel}
+                  {isYouTube && !connection?.connected && connection?.configured && (
+                    <ArrowUpRight size={14} />
+                  )}
                 </button>
               </article>
             );
