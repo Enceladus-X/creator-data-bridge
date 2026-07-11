@@ -13,7 +13,8 @@
   "dependencies": {
     "@creator-data-bridge/contracts": "workspace:*",
     "@fastify/cors": "11.3.0",
-    "fastify": "5.10.0"
+    "fastify": "5.10.0",
+    "googleapis": "173.0.0"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
