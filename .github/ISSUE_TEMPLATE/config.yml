@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/Enceladus-X/creator-data-bridge/security/advisories/new
+    about: 보안 문제는 비공개 Security Advisory로 신고해 주세요.

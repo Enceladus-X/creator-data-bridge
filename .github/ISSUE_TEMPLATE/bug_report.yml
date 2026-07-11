@@ -1,0 +1,47 @@
+name: Bug report
+description: 재현 가능한 문제를 등록합니다.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 문제
+      description: 실제 결과와 기대 결과를 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 절차
+      placeholder: |
+        1. 확장을 연다
+        2. 플랫폼을 선택한다
+        3. 오류를 확인한다
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 버전 또는 커밋
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - Chrome extension
+        - API
+        - Platform connector
+        - AI export
+        - Documentation
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 보안 확인
+      options:
+        - label: 이 이슈에 token, client secret, 개인 채널 원본 데이터를 포함하지 않았습니다.
+          required: true

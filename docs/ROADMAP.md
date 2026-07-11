@@ -13,6 +13,10 @@
 3. TikTok: Display API로 가능한 범위를 명확히 보여준다.
 4. X: 사용량 과금과 최근 30일 private metric 제한을 비용 모델과 함께 검증한다.
 
+## 현재 상태
+
+2026-07-11 기준으로 pnpm TypeScript 모노레포, 공통 Zod 계약, Chrome MV3 확장 셸, Fastify API, CI가 구성되었다. 다음 구현은 YouTube 실제 OAuth와 redacted API fixture 수집이다.
+
 ## Phase 0: 기획과 API 스파이크
 
 예상: 2~3일
@@ -22,6 +26,15 @@
 - OAuth redirect와 심사 준비 체크리스트 작성
 - 각 플랫폼에서 최소 1회 실제 API 응답 저장
 - API 응답을 기반으로 fixture와 redaction 규칙 작성
+
+완료된 기반 작업:
+
+- [x] 제품 요구사항과 공통 coverage 정의
+- [x] pnpm TypeScript 모노레포
+- [x] 공통 metric observation 계약과 테스트
+- [x] MV3 사이드 패널 및 전체 대시보드 셸
+- [x] Fastify health/platform endpoint
+- [x] GitHub Actions CI와 공개 저장소 운영 템플릿
 
 완료 기준:
 

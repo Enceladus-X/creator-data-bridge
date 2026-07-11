@@ -1,0 +1,32 @@
+name: Feature request
+description: 제품 또는 개발 경험 개선을 제안합니다.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: job
+    attributes:
+      label: 해결하려는 작업
+      description: 사용자가 어떤 상황에서 무엇을 하려는지 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안
+      description: 기대하는 동작과 데이터 범위를 적어 주세요.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 플랫폼
+      options:
+        - Cross-platform
+        - YouTube
+        - Instagram
+        - TikTok
+        - X
+        - Not platform-specific
+    validations:
+      required: true
