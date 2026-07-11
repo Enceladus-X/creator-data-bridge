@@ -58,7 +58,7 @@ export function App() {
         </button>
       </header>
 
-      <section className="panel-controls" aria-label="동기화 기간">
+      <section className="panel-controls" aria-label="YouTube 데이터 수집 기간">
         <div className="segmented">
           {ranges.map((days) => (
             <button
@@ -77,15 +77,19 @@ export function App() {
           disabled={loading || syncing || connecting}
           onClick={primaryAction}
         >
-          <RefreshCw size={16} className={syncing ? "spinning" : ""} />
+          {!connection?.configured ? (
+            <LayoutDashboard size={16} />
+          ) : (
+            <RefreshCw size={16} className={syncing ? "spinning" : ""} />
+          )}
           {syncing
-            ? "동기화 중"
+            ? "데이터 가져오는 중"
             : connecting
               ? "연결 확인 중"
               : !connection?.configured
                 ? "설정 열기"
                 : connection.connected
-                  ? "모두 동기화"
+                  ? "YouTube 새로고침"
                   : "YouTube 연결"}
         </button>
       </section>
@@ -129,7 +133,7 @@ export function App() {
               : !connection?.configured
                 ? "설정"
                 : connection.connected
-                  ? "동기화"
+                  ? "새로고침"
                   : "연결";
             return (
               <article className="platform-row" key={platform.id}>

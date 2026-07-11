@@ -153,7 +153,11 @@ export function useYouTubeDashboard() {
       );
       setData(response);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "동기화에 실패했습니다.");
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "YouTube 데이터를 가져오지 못했습니다.",
+      );
     } finally {
       setSyncing(false);
     }

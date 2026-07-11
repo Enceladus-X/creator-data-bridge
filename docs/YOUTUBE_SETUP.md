@@ -42,7 +42,7 @@ TOKEN_ENCRYPTION_KEY=64-character-hex-value
 pnpm dev
 ```
 
-대시보드에서 `YouTube 연결`을 누르고 Google 동의를 완료한 뒤 `모두 동기화`를 실행한다. 기본 수집 기간은 28일이며 7일과 90일을 선택할 수 있다.
+대시보드에서 `YouTube 연결`을 누르고 Google 동의를 완료한 뒤 `YouTube 데이터 새로고침`을 실행한다. 이 동작은 현재 YouTube 데이터만 가져온다. 기본 수집 기간은 28일이며 7일과 90일을 선택할 수 있다.
 
 ## 수집 데이터
 

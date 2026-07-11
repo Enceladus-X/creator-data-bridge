@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileDown,
   FileJson,
+  Info,
   LayoutDashboard,
   Link2,
   RefreshCw,
@@ -69,7 +70,7 @@ function formatSyncedAt(value: string | undefined) {
 
 function ContentPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null }) {
   if (!snapshot?.topContent.length) {
-    return <div className="data-empty">동기화된 콘텐츠 없음</div>;
+    return <div className="data-empty">가져온 YouTube 콘텐츠가 없습니다.</div>;
   }
 
   return (
@@ -102,7 +103,7 @@ function ContentPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null 
 function TrendPanel({ snapshot }: { snapshot: YouTubeDashboardSnapshot | null }) {
   const points = snapshot?.daily.slice(-28) ?? [];
   if (points.length === 0) {
-    return <div className="data-empty">동기화된 추이 없음</div>;
+    return <div className="data-empty">가져온 YouTube 추이 데이터가 없습니다.</div>;
   }
   const maximum = Math.max(...points.map((point) => point.views), 1);
 
@@ -136,7 +137,7 @@ function ExportPanel({
   if (!snapshot) {
     return (
       <div className="data-empty actionable-empty">
-        <span>내보낼 동기화 데이터가 없습니다.</span>
+        <span>내보낼 YouTube 데이터가 없습니다.</span>
         <button className="secondary-button" type="button" onClick={onSetup}>
           <Settings size={15} />
           YouTube 설정
@@ -186,6 +187,15 @@ function SetupPanel({ onRetry }: { onRetry: () => void }) {
           <span>자격증명은 확장 프로그램이 아니라 로컬 API의 .env에만 저장됩니다.</span>
         </div>
       </div>
+      <div className="scope-note">
+        <Info size={17} />
+        <div>
+          <strong>현재 자동 수집 범위는 YouTube입니다.</strong>
+          <span>
+            Instagram, TikTok, X는 각각 별도 개발자 앱과 OAuth 연결이 필요하며 아직 구현 예정입니다.
+          </span>
+        </div>
+      </div>
       <ol className="setup-steps">
         <li>
           <span>1</span>
@@ -229,7 +239,7 @@ function SetupPanel({ onRetry }: { onRetry: () => void }) {
         </button>
         <button className="primary-button" type="button" onClick={onRetry}>
           <RefreshCw size={15} />
-          설정 다시 확인
+          OAuth 상태 확인
         </button>
       </div>
     </div>
@@ -268,6 +278,15 @@ export function App() {
       void connect();
     }
   };
+
+  const sectionSubtitle =
+    activeView === "settings"
+      ? "YouTube API 연결 준비"
+      : activeView === "connections"
+        ? "플랫폼별 계정 연결"
+        : snapshot
+          ? `${snapshot.periodStart}–${snapshot.periodEnd}`
+          : "아직 가져온 데이터 없음";
 
   return (
     <div className="dashboard-shell">
@@ -327,34 +346,42 @@ export function App() {
             <h1>{viewLabel(activeView)}</h1>
           </div>
           <div className="header-actions">
-            <div className="segmented range-control">
-              {ranges.map((days) => (
-                <button
-                  key={days}
-                  type="button"
-                  aria-pressed={range === days}
-                  onClick={() => setRange(days)}
-                >
-                  {days}일
-                </button>
-              ))}
-            </div>
+            {activeView !== "settings" && (
+              <fieldset className="segmented range-control" aria-label="YouTube 데이터 수집 기간">
+                {ranges.map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    aria-pressed={range === days}
+                    onClick={() => setRange(days)}
+                  >
+                    {days}일
+                  </button>
+                ))}
+              </fieldset>
+            )}
             <button
               className="primary-button sync-button"
               type="button"
               disabled={loading || syncing || connecting}
-              onClick={primaryAction}
+              onClick={activeView === "settings" ? () => void refresh() : primaryAction}
             >
-              <RefreshCw size={16} className={syncing ? "spinning" : ""} />
-              {syncing
-                ? "동기화 중"
-                : connecting
-                  ? "연결 확인 중"
-                  : !connection?.configured
-                    ? "Google OAuth 설정"
-                    : connection.connected
-                      ? "모두 동기화"
-                      : "YouTube 연결"}
+              {activeView === "settings" || !connection?.configured ? (
+                <Settings size={17} />
+              ) : (
+                <RefreshCw size={17} className={syncing ? "spinning" : ""} />
+              )}
+              {activeView === "settings"
+                ? "OAuth 상태 확인"
+                : syncing
+                  ? "YouTube 데이터 가져오는 중"
+                  : connecting
+                    ? "YouTube 연결 확인 중"
+                    : !connection?.configured
+                      ? "Google OAuth 설정"
+                      : connection.connected
+                        ? "YouTube 데이터 새로고침"
+                        : "YouTube 연결"}
             </button>
           </div>
         </header>
@@ -375,7 +402,7 @@ export function App() {
             {apiState === "online" ? "온라인" : apiState === "checking" ? "확인 중" : "오프라인"}
           </div>
           <div>YouTube {connectionLabel}</div>
-          <div>마지막 동기화 {formatSyncedAt(snapshot?.lastSyncedAt)}</div>
+          <div>YouTube 마지막 수집 {formatSyncedAt(snapshot?.lastSyncedAt)}</div>
         </section>
 
         <section className="metric-strip" aria-label="핵심 지표">
@@ -398,9 +425,7 @@ export function App() {
             <div className="section-title">
               <div>
                 <h2>{viewLabel(activeView)}</h2>
-                <span>
-                  {snapshot ? `${snapshot.periodStart}–${snapshot.periodEnd}` : "동기화 대기"}
-                </span>
+                <span>{sectionSubtitle}</span>
               </div>
               {snapshot?.account.thumbnailUrl ? (
                 <img className="channel-avatar" src={snapshot.account.thumbnailUrl} alt="" />
@@ -446,7 +471,7 @@ export function App() {
                           onClick={primaryAction}
                         >
                           {connection?.connected
-                            ? "동기화"
+                            ? "새로고침"
                             : connection?.configured
                               ? "연결"
                               : "설정"}
@@ -477,7 +502,7 @@ export function App() {
                   onClick={primaryAction}
                 >
                   {connection?.connected
-                    ? "지금 동기화"
+                    ? "YouTube 데이터 새로고침"
                     : connection?.configured
                       ? "YouTube 연결"
                       : "연결 설정"}

@@ -1,6 +1,7 @@
 :root {
   color: #191919;
   background: #f7f7f6;
+  font-size: 14px;
   font-family:
     Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -40,8 +41,8 @@ button:disabled {
 
 .brand-mark {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 7px;
   color: white;
@@ -50,8 +51,8 @@ button:disabled {
 
 .icon-button {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
   place-items: center;
   border: 1px solid #dededb;
@@ -66,15 +67,18 @@ button:disabled {
 
 .segmented {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
+  margin: 0;
   padding: 3px;
+  border: 0;
   border-radius: 7px;
   background: #ececea;
 }
 
 .segmented button {
-  min-height: 32px;
+  min-height: 38px;
   cursor: pointer;
   border-radius: 5px;
   color: #686866;
@@ -89,7 +93,7 @@ button:disabled {
 
 .primary-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -106,7 +110,7 @@ button:disabled {
 
 .secondary-button {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 38px;
   align-items: center;
   justify-content: center;
   gap: 6px;

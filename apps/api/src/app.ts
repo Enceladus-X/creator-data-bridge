@@ -60,7 +60,7 @@ function completionPage() {
       p { margin: 0; color: #666; line-height: 1.6; }
     </style>
   </head>
-  <body><main><h1>YouTube 연결 완료</h1><p>Creator Data Bridge로 돌아가 동기화를 실행하세요. 이 탭은 닫아도 됩니다.</p></main></body>
+  <body><main><h1>YouTube 연결 완료</h1><p>Creator Data Bridge로 돌아가 YouTube 데이터 새로고침을 실행하세요. 이 탭은 닫아도 됩니다.</p></main></body>
 </html>`;
 }
 
