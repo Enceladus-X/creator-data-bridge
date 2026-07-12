@@ -1,156 +1,258 @@
 # 구현 로드맵
 
-기간은 개발자 1명이 집중해서 진행하는 대략적인 구현 시간이며, 각 플랫폼 앱 심사 대기 시간은 제외한다.
+기준일: 2026-07-12
+
+기간은 개발자 1명이 집중해서 진행하는 대략적인 구현 시간이며 플랫폼 앱 심사 대기 시간은 제외한다.
 
 ## 전략
 
-네 플랫폼을 얕게 동시에 연결하지 않는다. 공통 계약을 먼저 만든 뒤 유튜브로 연결부터 AI export까지 한 번 완주한다. 이후 connector 인터페이스를 유지하며 Instagram, TikTok, X를 차례로 붙인다.
+제품을 세 개의 수직 슬라이스로 발전시킨다.
 
-우선순위는 다음과 같다.
+1. **수집**: 로그인된 Chrome 세션에서 YouTube, TikTok, Instagram, X의 표시 데이터를 로컬로 읽어 CSV를 만든다.
+2. **추이**: 같은 콘텐츠의 스냅샷을 누적하고 플랫폼별 초기 반응과 증가량을 비교한다.
+3. **게시**: 사용자가 검토한 영상 하나를 공식 API로 여러 플랫폼에 게시한다.
 
-1. 유튜브: 분석 깊이가 가장 높고 제품 가치를 검증하기 좋다.
-2. Instagram: Professional 계정 제약과 앱 심사를 일찍 확인해야 한다.
-3. TikTok: Display API로 가능한 범위를 명확히 보여준다.
-4. X: 사용량 과금과 최근 30일 private metric 제한을 비용 모델과 함께 검증한다.
+읽기와 쓰기의 기술 경계를 분리한다. 로컬 수집은 DOM과 IndexedDB를 사용하고, 게시에는 OAuth 백엔드, 작업 저장소와 임시 object storage를 사용한다. YouTube 공식 API 분석은 Studio 로컬 수집과 분리된 선택 경로로 유지한다.
 
-## Phase 0: 기획과 API 스파이크
+## 현재 상태
+
+완료:
+
+- pnpm TypeScript 모노레포, 공통 Zod 계약, Chrome MV3 확장 셸, Fastify API, CI
+- YouTube OAuth, AES-256-GCM token vault, Data/Analytics API 동기화
+- YouTube 일별 추이, 상위 콘텐츠, JSON 내보내기
+- loorbit Chrome 프로필의 YouTube, TikTok, Instagram, X 실계정 수집 검증
+- 네 플랫폼 20행, 24열 UTF-8 CSV 생성과 재가져오기 검증
+- Instagram 좋아요와 댓글 0 판별 검증
+- 로컬 수집 및 공식 API 게시 설계
+- 브라우저 수집 계약, 숫자·날짜 정규화와 29열 CSV exporter
+- TikTok Studio, Instagram Reel, X 프로필 DOM 수집기와 스크롤 수집
+- 비활성 임시 탭 오케스트레이터, IndexedDB 실행·레코드 저장과 부분 성공
+- 플랫폼 토글·수집 한도 영구 설정과 원클릭 자동 CSV 다운로드
+- 개인정보 제거 DOM fixture, CSV와 설정 회귀 테스트
+- 최신 스냅샷의 플랫폼 요약, 콘텐츠 표, 비교 그래프와 내보내기 대시보드
+- YouTube Studio 채널 분석, 콘텐츠·Shorts 조회·댓글 로컬 수집
+
+다음 구현은 **설치된 Chrome 프로필에서 원클릭 전체 수집을 반복 smoke test하고 selector 진단을 강화하는 단계**다. 이후 누적 스냅샷의 콘텐츠별 변화량과 인기도 추이로 진행한다.
+
+CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고리즘과 PR 단위는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 따른다.
+
+## Phase 1: 브라우저 수집 기반
+
+상태: 완료
 
 예상: 2~3일
 
-- 제품 요구사항과 공통 지표 레지스트리 확정
-- 네 플랫폼 개발자 앱 생성 조건 확인
-- OAuth redirect와 심사 준비 체크리스트 작성
-- 각 플랫폼에서 최소 1회 실제 API 응답 저장
-- API 응답을 기반으로 fixture와 redaction 규칙 작성
+- 브라우저 수집 Zod 계약
+- 실행, 플랫폼, 콘텐츠, metric coverage 모델
+- 숫자·날짜·URL 공통 parser
+- IndexedDB snapshot repository
+- UTF-8 BOM CSV exporter
+- 최신 스냅샷과 이력 export 모드
+- `0`과 미제공/부분 실패 계약 테스트
 
 완료 기준:
 
-- 테스트 계정과 앱 등록 경로가 준비됨
-- 계획한 핵심 지표의 실제 지원 여부가 표에 반영됨
-- client secret이 필요한 흐름과 PKCE 가능 흐름이 확정됨
+- 수동 검증 CSV와 같은 열을 코드로 생성한다.
+- 빈 값과 숫자 0이 왕복 import 후에도 구분된다.
+- 같은 실행을 재개해도 콘텐츠 행이 중복되지 않는다.
 
-## Phase 1: 유튜브 수직 슬라이스
+## Phase 2: 탭 오케스트레이터
 
-예상: 7~10일
+상태: MVP 완료. 서비스 워커 중단 시 자동 이어받기는 후속 보강
 
-- pnpm TypeScript 모노레포 구성
-- MV3 확장 action, side panel, dashboard shell
-- API 세션, OAuth Broker, 암호화 토큰 저장
-- YouTube Data/Analytics connector
-- 동기화 실행, pagination, retry, checkpoint
-- 계정 개요, 일별 추이, 상위 영상 화면
-- 연결 해제와 데이터 삭제
+예상: 2~3일
+
+- 플랫폼별 선택적 host permission
+- 열린 탭의 계정 핸들 탐색과 전용 임시 탭 수집
+- 비활성 임시 탭 생성과 확장 소유권 기록
+- 페이지 준비 감지와 활성 탭 fallback
+- 취소, timeout, 부분 성공
+- `chrome.storage.session` 체크포인트
+- MV3 서비스 워커 재시작 후 이어하기
+- 확장 소유 탭만 정리하는 cleanup
 
 완료 기준:
 
-- 확장 아이콘에서 채널 연결과 28일 동기화를 완료함
-- 확장 서비스 워커가 중단되어도 서버 작업이 계속됨
-- Studio 대표 지표와 차이가 있을 때 coverage 또는 날짜 지연으로 설명됨
+- 사용자가 플랫폼 탭을 미리 열지 않아도 실행된다.
+- 사용자 탭을 닫거나 다른 URL로 이동시키지 않는다.
+- 브라우저 중단 후 결과를 잃지 않고 이어할 수 있다.
 
-## Phase 2: AI 패키지와 품질 기준
+## Phase 3: TikTok 수직 슬라이스
+
+상태: 완료
+
+예상: 2~3일
+
+- TikTok Studio 로그인과 계정 감지
+- 프로필 및 콘텐츠 표 parser
+- pagination/가상 스크롤과 ID 중복 제거
+- 조회, 좋아요, 댓글, 길이, 게시 시각, 공개 범위 정규화
+- 개인정보 제거 DOM fixture
+- 사이드 패널 진행 상태와 TikTok CSV
+
+완료 기준:
+
+- loorbit의 현재 TikTok 콘텐츠가 수동 검증 결과와 일치한다.
+- 새 게시물이 추가돼도 latest 100 한도 안에서 자동 발견한다.
+- selector 불일치는 잘못된 0 대신 명시적 오류가 된다.
+
+## Phase 4: X collector
+
+상태: 완료
+
+예상: 2일
+
+- 프로필 요약과 타임라인 article parser
+- 조회, 좋아요, 답글, 재게시와 영상 길이 추출
+- 가상 스크롤 안정화와 게시물 ID 병합
+- 상대/절대 게시 시각 처리
+- fixture와 실계정 smoke test
+
+완료 기준:
+
+- loorbit의 네 게시물 조회수 `2, 3, 4, 5` 검증 fixture를 통과한다.
+- 오래된 게시물 로딩이 중단되면 partial coverage를 남긴다.
+
+## Phase 5: Instagram collector
+
+상태: 완료. Professional Dashboard 조회수는 후속 조사
+
+예상: 3일
+
+- 프로필 요약과 Reel URL 발견
+- 개별 Reel 상세 수집과 지연 재시도
+- 좋아요 숫자 추출
+- `댓글`을 0, `댓글 N`을 N으로 정규화
+- 조회수 `unavailable` coverage
+- Professional Dashboard/Insights 조회수 surface 스파이크
+
+완료 기준:
+
+- loorbit Reel 좋아요와 댓글이 수동 검증과 일치한다.
+- 로딩 실패 Reel만 재시도할 수 있다.
+- 조회수 미제공을 0으로 내보내지 않는다.
+
+## Phase 6: 통합 수집 UX와 추이
+
+상태: 원클릭 수집·자동 CSV·재시도와 최신 스냅샷 시각화 완료, 스냅샷 delta와 시간 추이 미구현
+
+예상: 3~4일
+
+- `수집하고 CSV 다운로드`와 플랫폼별 진행 상태
+- 발견 콘텐츠 수, elapsed time, 취소
+- 성공/부분 실패/누락 지표 요약
+- 최신 결과 미리보기와 자동 CSV 저장
+- 플랫폼별 재시도
+- 동일 콘텐츠 수동 묶기
+- 스냅샷 delta와 시간당 증가량
+
+완료 기준:
+
+- TikTok → X → Instagram을 원클릭으로 순차 수집한다.
+- 한 플랫폼 실패가 다른 결과를 제거하지 않는다.
+- 두 번 이상 수집하면 콘텐츠별 변화량이 표시된다.
+
+## Phase 7: 게시 작성기와 미디어 파이프라인
 
 예상: 4~6일
 
-- 공통 metric registry와 provenance 구현
-- Markdown, JSON, CSV export builder
-- export 미리보기와 민감 데이터 토글
-- JSON Schema, fixture, redaction 테스트
-- AI 평가 질문 세트 작성
+- 영상 파일 선택, 미리보기와 공통 캡션
+- 플랫폼별 계정, 문구, 공개 범위와 옵션
+- 최종 게시 검토 화면
+- SHA-256과 중복 게시 경고
+- S3 호환 object storage multipart upload
+- signed URL과 24시간 lifecycle 삭제
+- `publish_job`, `publish_target`, `publish_event`
+- 부분 성공과 플랫폼별 재시도
 
 완료 기준:
 
-- 같은 입력은 의미상 같은 export를 생성함
-- 토큰과 비밀값 탐지 테스트를 통과함
-- AI가 warning을 무시하거나 지표를 잘못 합산하는 사례를 테스트로 포착함
+- 파일을 한 번 선택해 네 플랫폼용 게시 초안을 만든다.
+- 브라우저를 닫아도 업로드 작업 상태가 보존된다.
+- 임시 영상이 보존 정책에 따라 자동 삭제된다.
 
-## Phase 3: Instagram connector
+## Phase 8: 공식 게시 어댑터
 
-예상: 5~8일 + 외부 심사
+예상: 8~12일 + 외부 심사
 
-- Instagram Login 기반 OAuth 스파이크
-- Professional 계정과 media insights 수집
-- 미디어 유형별 metric mapping
-- 90일 범위와 팔로워 임계치 경고
-- Meta App Review 자료와 개인정보처리방침 준비
+구현 순서:
 
-완료 기준:
-
-- Business와 Creator 테스트 계정의 지원 지표를 동기화함
-- 개인 계정 연결 시 명확한 전환 안내를 제공함
-- 빈 데이터와 실제 0을 구분함
-
-## Phase 4: TikTok 및 X connector
-
-예상: 7~10일 + 외부 심사/요금 검증
-
-- TikTok Login Kit, user info, video list/query 연결
-- 스냅샷 기반 팔로워 변화 계산
-- X OAuth user context, user posts, metrics 연결
-- X 최근 30일 제한 및 사용량 비용 보호장치
-- 플랫폼별 partial success와 rate limit UX
+1. YouTube `videos.insert` 비공개 resumable upload
+2. TikTok Content Posting API unaudited 비공개 Direct Post
+3. Instagram Professional Reel container와 `media_publish`
+4. X chunked media upload와 Post 생성
 
 완료 기준:
 
-- 두 플랫폼의 현재 프로필과 콘텐츠 성과가 공통 목록에 표시됨
-- 미지원 심층 지표가 0으로 보이지 않음
-- 호출량 상한과 예상 비용을 설정할 수 있음
+- 각 플랫폼 테스트 계정에서 비공개 또는 제한 모드 게시를 완료한다.
+- 처리 상태와 최종 게시 URL을 기록한다.
+- 이미 성공한 플랫폼은 전체 재시도에서 건너뛴다.
+- 플랫폼 review/audit 전 제한을 UI에 명시한다.
 
-## Phase 5: 교차 플랫폼 분석
+## Phase 9: 공개 배포 준비
 
-예상: 5~8일
+예상: 4~6일 + 심사 대기
 
-- 같은 원본 콘텐츠의 플랫폼별 변형을 사용자가 묶는 기능
-- 플랫폼별 게시 후 24시간/7일 성과 비교
-- 공통 참여율 계산식 선택
-- 주간 자동 스냅샷과 변화 알림
-- 접근성, 한국어/영어, Chrome Web Store 패키징
+- TikTok Content Posting API audit
+- Meta Advanced Access/App Review
+- YouTube OAuth 검증과 upload audit
+- X access tier와 비용 상한 검증
+- Chrome Web Store 개인정보 공개
+- 데이터 흐름표, 이용약관, 개인정보처리방침
+- E2E와 실계정 회귀 테스트
 
-## 첫 개발 백로그
+완료 기준:
 
-| 순서 | 작업 | 산출물 |
-| --- | --- | --- |
-| 1 | 실제 YouTube API 응답 스파이크 | redacted fixtures와 metric 표 |
-| 2 | 공통 계약 정의 | Zod schema와 JSON Schema |
-| 3 | monorepo 및 CI | extension/api/packages 기본 구조 |
-| 4 | OAuth Broker | 연결, callback, refresh, revoke |
-| 5 | YouTube connector | account/content/analytics adapter |
-| 6 | sync run | checkpoint와 부분 실패 모델 |
-| 7 | side panel | 연결 상태와 모두 동기화 |
-| 8 | dashboard | 개요, 추이, 콘텐츠 |
-| 9 | export builder | md/json/csv 패키지 |
-| 10 | 보안·E2E 검증 | secret scan, Playwright 흐름 |
+- 공개 범위 게시가 승인된 플랫폼에서만 활성화된다.
+- 사용자가 수집 데이터와 게시용 미디어를 각각 삭제할 수 있다.
+- 확장 권한 설명이 실제 데이터 흐름과 일치한다.
 
-## 결정 게이트
+## 후속 기능
 
-개발 착수 전에 다음 기본값을 사용하고 필요할 때만 바꾼다.
+- 게시 후 1/6/24/72시간 스냅샷 알림
+- 예약 게시와 캘린더
+- AI 캡션·해시태그 초안
+- 같은 원본 영상 자동 묶기 후보
+- `summary.md + content.csv + data_dictionary.md` AI 패키지
+- selector fixture 상태 검사와 업데이트 알림
+- 팀 승인과 다중 사용자
 
-| 항목 | 기본 결정 | 바꿀 시점 |
-| --- | --- | --- |
-| 사용자 범위 | 우선 본인 1명, 구조는 다중 사용자 | 외부 베타 시작 전 |
-| 백엔드 | 호스팅된 API + PostgreSQL | 완전 로컬 제품이 필수일 때 |
-| AI 연결 | 파일 생성과 복사 | 사용자가 반복 자동 전송을 원할 때 |
-| 원본 보존 | 짧은 기간, export 기본 제외 | 감사·재처리 요구가 확인될 때 |
-| 수익 지표 | 기본 제외, 점진 권한 | 유튜브 비수익 지표 MVP 후 |
-| 동기화 | 사용자 클릭 | 주간 사용성이 검증된 후 예약 추가 |
-
-## 주요 위험과 대응
+## 위험과 대응
 
 | 위험 | 영향 | 대응 |
 | --- | --- | --- |
-| 플랫폼 앱 심사 지연 | 외부 사용자 연결 지연 | 본인 앱 역할 계정으로 기능 개발, 심사 자료를 Phase 0부터 준비 |
-| API 지표 변경 | 잘못된 매핑 | 버전 기록, fixture 계약 테스트, metric registry |
-| 서로 다른 지표 의미 | AI의 잘못된 결론 | provenance, coverage, 명시적 formula ID |
-| 토큰 유출 | 계정 보안 사고 | 서버 암호화, 최소 scope, 로그 redaction, revoke |
-| MV3 서비스 워커 중단 | 동기화 중단 | 장기 작업은 백엔드 job으로 실행 |
-| X 호출 비용 | 예산 초과 | 계정별 호출 상한, 캐시, 증분 동기화, 비용 표시 |
-| TikTok 분석 깊이 부족 | 기대 불일치 | 연결 전 가용 범위 표시, 미지원 지표를 명확히 표기 |
+| 플랫폼 DOM 변경 | 수집 중단 또는 잘못된 값 | selector 버전, fixture 계약 테스트, fail closed |
+| background tab 미로딩 | 일부 콘텐츠 누락 | 준비 detector, 제한 재시도, active fallback |
+| MV3 서비스 워커 중단 | 실행 상태 유실 | session checkpoint, IndexedDB append, 재실행 가능한 단계 |
+| 플랫폼 앱 심사 지연 | 공개 게시 지연 | 비공개 테스트 모드와 보조 게시 fallback |
+| Instagram 영상 URL 요구 | 로컬 전용 게시 불가 | 짧게 만료되는 object storage pull URL |
+| 중복 게시 | 채널 신뢰도 손상 | media/caption hash idempotency와 최종 경고 |
+| 토큰 또는 원본 영상 유출 | 계정·콘텐츠 사고 | 서버 암호화, signed URL, 로그 redaction, lifecycle 삭제 |
+| X 사용량 비용 | 예산 초과 | 계정별 게시 상한과 access tier 표시 |
+| 지표 의미 혼합 | 잘못된 AI 결론 | provenance, coverage, 플랫폼 내부 순위 우선 |
 
-## 검증 계획
+## 테스트 기준
 
-- 단위 테스트: metric mapping, 파생식, 날짜 경계, redaction
-- 계약 테스트: 플랫폼별 redacted API fixture를 공통 스키마로 변환
-- 통합 테스트: OAuth callback, token refresh, partial retry, revoke
-- E2E 테스트: 연결 → 모두 동기화 → 대시보드 → AI export
-- 시각 테스트: 사이드 패널과 전체 탭을 데스크톱 주요 폭에서 캡처
-- 보안 테스트: 확장 번들 및 로그에서 secret 패턴 검색
-- AI 평가: 같은 패키지를 여러 모델에 주고 근거, 누락 인식, 잘못된 합산을 채점
+- 단위: 숫자/날짜 parser, coverage, CSV, idempotency
+- 계약: 개인정보 제거 DOM/API fixture → 공통 스키마
+- 통합: 권한 → 탭 → 수집 → 저장 → CSV
+- 게시: 파일 → object storage → provider → 상태 → URL
+- 중단: 서비스 워커/브라우저 재시작 후 이어하기
+- 안전: 사용자 탭 보존, 임시 탭 정리, 토큰/원본 로그 부재
+- 실계정: loorbit 수동 검증 CSV와 정기 비교
+- 시각: 사이드 패널과 게시 작성기 desktop 폭 검증
+
+## 재사용 워크플로우 후보
+
+플랫폼 수집기 추가와 selector 갱신 작업을 다음 구조로 분리할 후보로 둔다.
+
+```text
+skills/social-browser-collector/
+  SKILL.md
+  scripts/validate-fixture.ts
+  references/collector-contract.md
+  assets/redacted-fixtures/
+```
+
+각 플랫폼의 감지, fixture redaction, parser 검증, 실계정 smoke test와 coverage 보고 절차를 반복 가능하게 만든다.

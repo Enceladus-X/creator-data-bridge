@@ -1,8 +1,34 @@
-# 플랫폼 API 가용성
+# 플랫폼 데이터 및 게시 가용성
 
 조사 기준일: 2026-07-11
 
 `지원`은 공식 API에서 직접 제공, `부분`은 일부 계정·기간·지표만 제공, `스냅샷`은 제품이 주기적으로 저장해야 변화량을 계산, `미지원`은 MVP에서 공식적으로 가져올 수 없음을 뜻한다.
+
+수집 MVP는 공식 API만으로 제한하지 않는다. 사용자가 명시적으로 시작한 실행에서 로그인된 Chrome 탭의 표시 데이터를 읽되 쿠키, 토큰, DM과 댓글 본문은 읽지 않는다. 게시 기능은 쓰기 작업이므로 공식 API만 사용한다.
+
+## 실계정 브라우저 수집 검증
+
+검증일: 2026-07-12
+
+| 플랫폼 | 검증 화면 | 확인된 데이터 | 미확인/미제공 |
+| --- | --- | --- | --- |
+| TikTok | TikTok Studio content | 프로필, 영상 URL/제목/시각/길이, 조회, 좋아요, 댓글 | 심층 유지율 |
+| Instagram | 프로필과 Reel | 프로필, Reel URL/캡션, 좋아요, 댓글 | 현재 surface의 조회수 |
+| X | 프로필 타임라인 | 프로필, 게시물 URL/본문/시각/길이, 조회, 좋아요, 답글, 재게시 | 심층 분석 |
+| YouTube | Studio와 공식 API | 채널, Shorts, 조회, 기간 분석 | 브라우저 수집은 MVP 제외 |
+
+자세한 수집 동작은 [확장프로그램 로컬 수집 설계](EXTENSION_COLLECTION_SPEC.md)를 따른다.
+
+## 공식 게시 API 요약
+
+| 플랫폼 | 게시 방식 | 주요 제약 |
+| --- | --- | --- |
+| YouTube | `videos.insert` resumable upload | `youtube.upload`, 미검증 프로젝트 비공개 제한 |
+| TikTok | Content Posting API Direct Post | `video.publish`, 명시적 동의, audit 전 비공개 제한 |
+| Instagram | Reel container 생성 후 `media_publish` | Professional 계정, publish 권한, 접근 가능한 `video_url` |
+| X | chunked media upload 후 Post 생성 | 사용자 OAuth, access tier와 사용량 제한 |
+
+게시 제품 설계는 [교차 플랫폼 자동 업로드 설계](AUTOMATED_PUBLISHING_SPEC.md)를 따른다.
 
 ## 요약표
 
@@ -131,7 +157,9 @@ MVP 수집 후보:
 
 ## 제품 정책
 
-- 플랫폼별 공식 API 응답을 `raw` 계층에 저장하고, 별도의 adapter가 공통 스키마로 변환한다.
-- 지원하지 않는 지표를 화면 스크래핑으로 보충하지 않는다.
-- API 버전, 요청 권한, 데이터 기간, 경고를 동기화 실행마다 기록한다.
-- 각 플랫폼 커넥터에는 fixture 기반 계약 테스트와 실제 샌드박스 스모크 테스트를 둔다.
+- YouTube 분석과 모든 플랫폼 게시에는 공식 API를 사용한다.
+- TikTok, Instagram, X 공개 성과는 사용자 동작으로 시작한 로컬 DOM 수집을 허용한다.
+- DOM 수집은 쿠키와 토큰을 읽지 않고 댓글 본문, DM, 팔로워 목록을 제외한다.
+- API 버전 또는 selector 버전, 권한, 수집 화면, 수집 시각과 경고를 실행마다 기록한다.
+- 지원하지 않는 지표는 0으로 만들지 않고 coverage와 빈 값으로 남긴다.
+- 각 API 어댑터와 브라우저 수집기에는 개인정보 제거 fixture 계약 테스트와 실계정 smoke test를 둔다.

@@ -2,9 +2,9 @@
 
 ## 1. 핵심 결정
 
-Chrome 확장프로그램만으로 모든 OAuth와 장기 토큰 보관을 처리하지 않는다. 확장 패키지는 누구나 내려받아 내부 값을 볼 수 있으므로 client secret을 안전하게 숨길 수 없다. 운영 구조는 **Manifest V3 확장프로그램 + OAuth/수집 백엔드 + 데이터 저장소**다.
+Chrome 확장프로그램만으로 모든 OAuth, 장기 토큰 보관과 대용량 업로드를 처리하지 않는다. 확장 패키지는 누구나 내려받아 내부 값을 볼 수 있으므로 client secret을 안전하게 숨길 수 없다. 운영 구조는 **Manifest V3 확장프로그램 + 로컬 브라우저 수집 + OAuth/게시 백엔드 + 데이터 저장소**다.
 
-확장프로그램은 페이지 스크래핑용 content script를 사용하지 않는다. 필요한 Chrome 권한은 `identity`, `storage`, `sidePanel`, `downloads`와 우리 API 도메인의 host permission으로 제한한다.
+TikTok, Instagram, X 성과는 사용자가 수집을 시작했을 때만 플랫폼별 content script를 주입해 표시 DOM을 읽는다. 최종 게시는 화면 자동 클릭이 아니라 공식 API를 사용한다. 쿠키, 토큰, DM, 댓글 본문은 읽지 않는다.
 
 ## 2. 시스템 구성
 
@@ -14,18 +14,24 @@ flowchart LR
     SP --> DB["확장 대시보드 탭"]
     SP --> SW["MV3 서비스 워커"]
     DB --> SW
-    SW --> API["Connector API"]
+    SW --> BT["로컬 탭 수집기"]
+    BT --> IDB["IndexedDB 스냅샷"]
+    IDB --> EXL["로컬 CSV"]
+    SW --> API["OAuth/Publish API"]
     API --> OA["OAuth Broker"]
     API --> SY["Sync Orchestrator"]
-    API --> EX["Export Builder"]
+    API --> PUB["Publish Orchestrator"]
+    PUB --> OBJ["임시 미디어 저장소"]
     OA --> TV["암호화 토큰 저장소"]
     SY --> YT["YouTube APIs"]
     SY --> IG["Instagram API"]
     SY --> TT["TikTok API"]
     SY --> XA["X API"]
     SY --> PG["PostgreSQL"]
-    EX --> PG
-    EX --> PKG["AI Export Package"]
+    PUB --> YT
+    PUB --> IG
+    PUB --> TT
+    PUB --> XA
 ```
 
 ## 3. 권장 기술 스택
@@ -68,26 +74,34 @@ docs/
 ### 서비스 워커
 
 - 백엔드 세션 생성과 API 요청 조정
-- 동기화 진행 알림과 badge 상태
+- 로컬 수집 실행, 탭 소유권과 체크포인트 조정
+- 수집 및 게시 진행 알림과 badge 상태
 - OAuth 창 시작 및 redirect 결과 전달
 - 다운로드 시작
-- 장기 실행을 서비스 워커 생명주기에 의존하지 않음
+- 장기 게시 실행을 서비스 워커 생명주기에 의존하지 않음
 
-MV3 서비스 워커는 필요할 때 시작되고 중단될 수 있다. 실제 수집 작업은 백엔드 작업으로 만들고, 확장프로그램은 `sync_run_id`를 폴링하거나 이벤트 스트림으로 상태를 갱신한다.
+MV3 서비스 워커는 필요할 때 시작되고 중단될 수 있다. 로컬 수집은 작은 재실행 가능 단계와 `chrome.storage.session` 체크포인트로 복구한다. 대용량 업로드와 게시 처리는 백엔드 작업으로 만들고 확장프로그램은 `publish_job_id`를 폴링하거나 이벤트 스트림으로 상태를 갱신한다.
 
 ### 저장소 사용
 
 - `chrome.storage.local`: UI 설정, 마지막 선택 기간, 연결 상태 캐시
-- IndexedDB: 화면용 제한적 캐시와 오프라인 내보내기 임시 데이터
-- 백엔드: 정규화 데이터, 동기화 이력, 암호화 토큰, 원본 응답
+- `chrome.storage.session`: 실행 상태, 탭 소유권, cursor, 취소 신호
+- IndexedDB: 로컬 수집 스냅샷, 콘텐츠 지표 이력과 export 데이터
+- 백엔드: YouTube 분석, 게시 작업, 암호화 토큰, 임시 미디어 참조
 - 금지: client secret, refresh token, 전체 원본 응답을 `chrome.storage`에 영구 저장
 
 ### 권한 원칙
 
-- `tabs`, `cookies`, 광범위한 `<all_urls>`는 MVP에서 요청하지 않는다.
+- `scripting`, `alarms`와 플랫폼별 선택적 host permission을 로컬 수집에 사용한다.
+- 탭 생성·정리는 `chrome.tabs` API로 수행하되 manifest의 `tabs` 권한은 요청하지 않는다.
+- `cookies`, `webRequest`, 광범위한 `<all_urls>`는 요청하지 않는다.
+- TikTok, Instagram, X host permission은 플랫폼 활성화 시 선택적으로 요청한다.
 - OAuth는 사용자 버튼 클릭 후에만 대화형 창을 연다.
-- host permission은 우리 API와 필요한 OAuth redirect 범위로 한정한다.
 - CSP를 엄격하게 유지하고 원격 코드를 실행하지 않는다.
+
+로컬 수집의 탭 정책, 수집기 계약과 selector 테스트는 [확장프로그램 로컬 수집 설계](EXTENSION_COLLECTION_SPEC.md)를 따른다. 게시 작업과 임시 미디어의 경계는 [교차 플랫폼 자동 업로드 설계](AUTOMATED_PUBLISHING_SPEC.md)를 따른다.
+
+CSV 수집 MVP의 구현 단위와 출시 게이트는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 따른다.
 
 ## 5. 백엔드 경계
 

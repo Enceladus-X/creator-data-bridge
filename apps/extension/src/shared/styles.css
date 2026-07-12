@@ -1,0 +1,153 @@
+:root {
+  color: #191919;
+  background: #f7f7f6;
+  font-size: 14px;
+  font-family:
+    Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+}
+
+button {
+  border: 0;
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid #1e66d0;
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.brand-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 7px;
+  color: white;
+  background: #171717;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  place-items: center;
+  border: 1px solid #dededb;
+  border-radius: 7px;
+  color: #343434;
+  background: #ffffff;
+}
+
+.icon-button:hover {
+  background: #f0f0ee;
+}
+
+.segmented {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 7px;
+  background: #ececea;
+}
+
+.segmented button {
+  min-height: 38px;
+  cursor: pointer;
+  border-radius: 5px;
+  color: #686866;
+  background: transparent;
+}
+
+.segmented button[aria-pressed="true"] {
+  color: #171717;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+.primary-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #171717;
+  font-weight: 700;
+}
+
+.primary-button:hover {
+  background: #303030;
+}
+
+.secondary-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px solid #d8d8d4;
+  border-radius: 6px;
+  color: #252525;
+  background: #ffffff;
+  font-weight: 650;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9b9b98;
+}
+
+.status-dot.online {
+  background: #16855b;
+}
+
+.status-dot.offline {
+  background: #c23d31;
+}
+
+.muted {
+  color: #747471;
+}
+
+.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
