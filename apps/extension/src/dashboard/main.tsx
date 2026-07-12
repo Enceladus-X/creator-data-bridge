@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { CollectionDashboard } from "./CollectionDashboard";
 import "../shared/styles.css";
-import "./dashboard.css";
+import "./collection-dashboard.css";
 
 const root = document.getElementById("root");
 
@@ -12,6 +12,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <CollectionDashboard />
   </StrictMode>,
 );

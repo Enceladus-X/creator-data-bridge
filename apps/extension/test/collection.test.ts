@@ -8,6 +8,7 @@ import {
   parseInstagramDate,
 } from "../src/collection/normalize";
 import { normalizeCollectionPreferences } from "../src/collection/preferences";
+import { buildPlatformSummaries } from "../src/dashboard/CollectionDashboard";
 
 describe("collection normalization", () => {
   it.each([
@@ -89,5 +90,55 @@ describe("collection CSV", () => {
     expect(csv).toContain('"comments","comments_coverage"');
     expect(csv).toContain('"","unavailable","6","complete","0","complete"');
     expect(csv).toContain('"cloth, ""finally"" real"');
+  });
+});
+
+describe("collection dashboard aggregation", () => {
+  it("aggregates known metrics without turning unavailable values into displayed data", () => {
+    const records: CollectionRecord[] = [
+      {
+        schemaVersion: "1.0.0",
+        runId: "run-dashboard",
+        snapshotAt: "2026-07-12T02:07:08.055Z",
+        platform: "instagram",
+        accountName: "Loorbit",
+        accountHandle: "@loorbit0",
+        recordType: "content",
+        contentId: "reel-1",
+        contentUrl: "https://www.instagram.com/reel/reel-1/",
+        contentType: "reel",
+        title: "test reel",
+        publishedAt: "2026-07-11",
+        durationSeconds: 22,
+        views: null,
+        viewsCoverage: "unavailable",
+        likes: 6,
+        likesCoverage: "complete",
+        comments: 0,
+        commentsCoverage: "complete",
+        shares: null,
+        sharesCoverage: "unavailable",
+        saves: null,
+        savesCoverage: "unavailable",
+        followers: null,
+        following: null,
+        totalPosts: null,
+        sourceSurface: "instagram_reel_web",
+        selectorVersion: "instagram-meta-v1",
+        notes: "",
+      },
+    ];
+
+    const instagram = buildPlatformSummaries(records, null).find(
+      (summary) => summary.platform === "instagram",
+    );
+    expect(instagram).toMatchObject({
+      contentCount: 1,
+      knownViews: 0,
+      views: 0,
+      likes: 6,
+      comments: 0,
+      unavailable: 1,
+    });
   });
 });

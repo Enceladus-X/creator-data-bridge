@@ -14,6 +14,18 @@ export function openDashboard(view?: DashboardTarget) {
   window.location.assign(`/dashboard.html${hash}`);
 }
 
+export async function openCollectionPanel() {
+  try {
+    if (typeof chrome === "undefined" || !chrome.runtime?.id || !chrome.sidePanel) return false;
+    const currentWindow = await chrome.windows.getCurrent();
+    if (currentWindow.id === undefined) return false;
+    await chrome.sidePanel.open({ windowId: currentWindow.id });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function downloadJson(fileName: string, value: unknown) {
   const url = URL.createObjectURL(
     new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" }),
