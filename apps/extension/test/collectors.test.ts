@@ -72,6 +72,36 @@ describe("platform DOM collectors", () => {
     });
   });
 
+  it("reads YouTube metrics from Studio table cell classes", () => {
+    installDom(
+      `
+        <table aria-label="Shorts list">
+          <ytcp-video-row>
+            <a id="video-title" title="Real Studio row" href="/video/MetricRow1/edit">Real Studio row</a>
+            <div class="tablecell-visibility"><div id="visibility">Public</div></div>
+            <div class="tablecell-date"><div>2026. 7. 11.</div><span>Published</span></div>
+            <div class="tablecell-views"><div class="metric-value">1.2K</div></div>
+            <div class="tablecell-comments"><a class="comments-link">0</a></div>
+            <div class="tablecell-likes">
+              <div class="likes-container"><span>100.0%</span><span>7 likes</span></div>
+            </div>
+          </ytcp-video-row>
+        </table>
+      `,
+      "https://studio.youtube.com/channel/UC3et4G7xRpVJuZNEW4mHwhw/videos/short",
+    );
+
+    const payload = collectYouTubeStudioContentPage("UC3et4G7xRpVJuZNEW4mHwhw", "short");
+    expect(payload.items[0]).toMatchObject({
+      contentId: "MetricRow1",
+      publishedDisplay: "2026. 7. 11.Published",
+      viewsText: "1.2K",
+      likesText: "7",
+      commentsText: "0",
+      notes: ["visibility=Public"],
+    });
+  });
+
   it("reads TikTok Studio rows without confusing zero metrics with missing values", () => {
     installDom(
       `

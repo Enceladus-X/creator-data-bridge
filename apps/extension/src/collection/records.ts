@@ -101,7 +101,7 @@ export function normalizePlatformPayload(
             ? parseKoreanStudioDate(item.publishedDisplay, new Date(snapshotAt))
             : null);
     const unavailable = payload.platform === "instagram" ? "unavailable" : "partial";
-    const likesUnavailable = payload.platform === "youtube" ? "unavailable" : unavailable;
+    const likesUnavailable = payload.platform === "youtube" ? "partial" : unavailable;
 
     records.push(
       collectionRecordSchema.parse({

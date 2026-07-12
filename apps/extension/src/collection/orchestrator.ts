@@ -46,7 +46,7 @@ const currentRunStorageKey = "collection.currentRun";
 const handlesStorageKey = "collection.handles";
 const defaultPlatforms: BrowserPlatform[] = ["youtube", "tiktok", "x", "instagram"];
 const selectorVersions: Record<BrowserPlatform, string> = {
-  youtube: "youtube-studio-v1",
+  youtube: "youtube-studio-v2",
   tiktok: "tiktok-studio-v1",
   instagram: "instagram-meta-v1",
   x: "x-profile-v1",

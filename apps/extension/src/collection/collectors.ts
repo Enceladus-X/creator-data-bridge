@@ -61,6 +61,39 @@ export function collectYouTubeStudioContentPage(
   const items: RawContentItem[] = [];
   const seen = new Set<string>();
 
+  const compactCountPattern = /\d+(?:[.,]\d+)*(?:\s*[kKmMbB\uCC9C\uB9CC\uC5B5])?/g;
+  const elementText = (row: HTMLElement, selectors: string[]) => {
+    for (const selector of selectors) {
+      const element = row.querySelector<HTMLElement>(selector);
+      const value = (element?.textContent ?? "").trim().replace(/\s+/g, " ");
+      if (value) return value;
+    }
+    return null;
+  };
+  const metricText = (row: HTMLElement, selectors: string[], preferLast = false) => {
+    for (const selector of selectors) {
+      const element = row.querySelector<HTMLElement>(selector);
+      if (!element) continue;
+      const candidates = [
+        element.getAttribute("aria-label"),
+        element.getAttribute("title"),
+        element.textContent,
+      ];
+      for (const candidate of candidates) {
+        if (!candidate) continue;
+        const matches = Array.from(candidate.matchAll(compactCountPattern))
+          .filter(
+            (match) => candidate.slice((match.index ?? 0) + match[0].length).trimStart()[0] !== "%",
+          )
+          .map((match) => match[0].replace(/\s+/g, ""));
+        if (matches.length > 0) {
+          return preferLast ? (matches.at(-1) ?? null) : (matches[0] ?? null);
+        }
+      }
+    }
+    return null;
+  };
+
   for (const row of rowNodes) {
     const editLink = Array.from(row.querySelectorAll<HTMLAnchorElement>('a[href*="/video/"]')).find(
       (anchor) => /\/video\/[^/?#]+(?:\/edit)?/.test(anchor.getAttribute("href") ?? ""),
@@ -71,9 +104,13 @@ export function collectYouTubeStudioContentPage(
       row.querySelector<HTMLElement>("#video-title") ??
       editLink ??
       row.querySelector<HTMLElement>('[aria-label*="동영상"]');
-    const text = (selector: string) =>
-      (row.querySelector<HTMLElement>(selector)?.textContent ?? "").trim() || null;
-    const visibility = text("#visibility, #visibility-text");
+    const visibility = elementText(row, [
+      ".tablecell-visibility #visibility",
+      ".tablecell-visibility #visibility-text",
+      ".tablecell-visibility",
+      "#visibility",
+      "#visibility-text",
+    ]);
 
     items.push({
       contentId: id,
@@ -83,13 +120,38 @@ export function collectYouTubeStudioContentPage(
           : `https://www.youtube.com/watch?v=${id}`,
       contentType,
       title: (titleElement?.getAttribute("title") ?? titleElement?.textContent ?? "").trim(),
-      publishedDisplay: text("#date-text, .date"),
+      publishedDisplay: elementText(row, [
+        ".tablecell-date #date-text",
+        ".tablecell-date .date",
+        ".tablecell-date",
+        "#date-text",
+        ".date",
+      ]),
       publishedAt: null,
-      durationDisplay: text("#duration, .video-duration"),
+      durationDisplay: elementText(row, [
+        "#video-thumbnail #duration",
+        "#duration",
+        ".video-duration",
+      ]),
       durationSeconds: null,
-      viewsText: text("#views"),
-      likesText: null,
-      commentsText: text("#comments"),
+      viewsText: metricText(row, [
+        ".tablecell-views #metric-value",
+        ".tablecell-views .metric-value",
+        ".tablecell-views",
+        "#views",
+      ]),
+      likesText: metricText(
+        row,
+        [".tablecell-likes .likes-container", ".likes-container", ".tablecell-likes", "#likes"],
+        true,
+      ),
+      commentsText: metricText(row, [
+        ".tablecell-comments .comments-link",
+        ".comments-link",
+        ".tablecell-comments #metric-value",
+        ".tablecell-comments",
+        "#comments",
+      ]),
       sharesText: null,
       savesText: null,
       notes: visibility ? [`visibility=${visibility}`] : [],

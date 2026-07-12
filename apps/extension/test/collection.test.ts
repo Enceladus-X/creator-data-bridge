@@ -119,7 +119,7 @@ describe("collection CSV", () => {
 });
 
 describe("YouTube Studio normalization", () => {
-  it("keeps Studio likes unavailable while preserving views and explicit zero comments", () => {
+  it("preserves Studio views, likes, and explicit zero comments", () => {
     const records = normalizePlatformPayload(
       "run-youtube",
       {
@@ -147,7 +147,7 @@ describe("YouTube Studio normalization", () => {
             durationDisplay: "0:22",
             durationSeconds: null,
             viewsText: "1.2천",
-            likesText: null,
+            likesText: "7",
             commentsText: "0",
             sharesText: null,
             savesText: null,
@@ -158,7 +158,7 @@ describe("YouTube Studio normalization", () => {
         errorCode: null,
         errorMessage: null,
       },
-      "youtube-studio-v1",
+      "youtube-studio-v2",
       "2026-07-12T02:07:08.055Z",
     );
 
@@ -174,8 +174,8 @@ describe("YouTube Studio normalization", () => {
       publishedAt: "2026-07-11",
       views: 1200,
       viewsCoverage: "complete",
-      likes: null,
-      likesCoverage: "unavailable",
+      likes: 7,
+      likesCoverage: "complete",
       comments: 0,
       commentsCoverage: "complete",
     });
