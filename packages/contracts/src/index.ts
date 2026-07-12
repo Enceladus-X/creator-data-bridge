@@ -181,3 +181,104 @@ export const youtubeDashboardResponseSchema = z.object({
   snapshot: youtubeDashboardSnapshotSchema.nullable(),
 });
 export type YouTubeDashboardResponse = z.infer<typeof youtubeDashboardResponseSchema>;
+
+export const browserPlatformSchema = z.enum(["tiktok", "instagram", "x"]);
+export type BrowserPlatform = z.infer<typeof browserPlatformSchema>;
+
+export const collectionRecordTypeSchema = z.enum(["channel_summary", "content"]);
+export type CollectionRecordType = z.infer<typeof collectionRecordTypeSchema>;
+
+export const collectionValueCoverageSchema = z.enum([
+  "complete",
+  "partial",
+  "unavailable",
+  "unsupported",
+]);
+export type CollectionValueCoverage = z.infer<typeof collectionValueCoverageSchema>;
+
+const nullableCountSchema = z.number().finite().nonnegative().nullable();
+
+export const collectionRecordSchema = z.object({
+  schemaVersion: z.literal("1.0.0"),
+  runId: z.string().min(1),
+  snapshotAt: z.string().datetime({ offset: true }),
+  platform: platformSchema,
+  accountName: z.string(),
+  accountHandle: z.string().min(1),
+  recordType: collectionRecordTypeSchema,
+  contentId: z.string(),
+  contentUrl: z.string(),
+  contentType: z.string(),
+  title: z.string(),
+  publishedAt: z.string().nullable(),
+  durationSeconds: nullableCountSchema,
+  views: nullableCountSchema,
+  viewsCoverage: collectionValueCoverageSchema,
+  likes: nullableCountSchema,
+  likesCoverage: collectionValueCoverageSchema,
+  comments: nullableCountSchema,
+  commentsCoverage: collectionValueCoverageSchema,
+  shares: nullableCountSchema,
+  sharesCoverage: collectionValueCoverageSchema,
+  saves: nullableCountSchema,
+  savesCoverage: collectionValueCoverageSchema,
+  followers: nullableCountSchema,
+  following: nullableCountSchema,
+  totalPosts: nullableCountSchema,
+  sourceSurface: z.string().min(1),
+  selectorVersion: z.string().min(1),
+  notes: z.string(),
+});
+export type CollectionRecord = z.infer<typeof collectionRecordSchema>;
+
+export const platformCollectionStateSchema = z.enum([
+  "pending",
+  "opening",
+  "waiting",
+  "collecting",
+  "normalizing",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+export type PlatformCollectionState = z.infer<typeof platformCollectionStateSchema>;
+
+export const platformCheckpointSchema = z.object({
+  platform: browserPlatformSchema,
+  state: platformCollectionStateSchema,
+  accountHandle: z.string().nullable(),
+  discovered: z.number().int().nonnegative(),
+  rowsWritten: z.number().int().nonnegative(),
+  warningCodes: z.array(z.string()),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  lastHeartbeatAt: z.string().datetime({ offset: true }).nullable(),
+});
+export type PlatformCheckpoint = z.infer<typeof platformCheckpointSchema>;
+
+export const collectionRunStateSchema = z.enum([
+  "preflight",
+  "running",
+  "partially_completed",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+export type CollectionRunState = z.infer<typeof collectionRunStateSchema>;
+
+export const collectionRunSchema = z.object({
+  id: z.string().min(1),
+  state: collectionRunStateSchema,
+  requestedPlatforms: z.array(browserPlatformSchema).min(1),
+  itemLimit: z.number().int().min(1).max(500),
+  createdAt: z.string().datetime({ offset: true }),
+  completedAt: z.string().datetime({ offset: true }).nullable(),
+  platforms: z.record(browserPlatformSchema, platformCheckpointSchema),
+});
+export type CollectionRun = z.infer<typeof collectionRunSchema>;
+
+export const collectionSnapshotSchema = z.object({
+  run: collectionRunSchema.nullable(),
+  records: z.array(collectionRecordSchema),
+});
+export type CollectionSnapshot = z.infer<typeof collectionSnapshotSchema>;

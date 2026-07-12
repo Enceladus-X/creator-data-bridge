@@ -3,9 +3,20 @@
 [![CI](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-유튜브, 인스타그램, 틱톡, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 형태로 내보내고, 검토한 영상을 여러 채널에 게시하는 Chrome 확장프로그램입니다.
+TikTok, Instagram, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 CSV로 저장하는 로컬 우선 Chrome 확장프로그램입니다.
 
-현재 저장소에는 Chrome Manifest V3 확장프로그램, Fastify API, 공통 Zod 데이터 계약이 함께 빌드되는 초기 모노레포가 구성되어 있습니다. 첫 실제 커넥터는 YouTube입니다.
+현재 `0.2.0` 확장프로그램은 로그인된 Chrome 세션을 이용해 플랫폼 탭을 직접 열고, 공개 프로필·콘텐츠 지표를 읽은 뒤 임시 탭을 정리합니다. 쿠키와 비밀번호는 읽지 않으며 수집 결과는 IndexedDB에 로컬 저장됩니다.
+
+## 사용 흐름
+
+1. Chrome에서 TikTok, Instagram, X에 로그인합니다.
+2. 확장프로그램 사이드 패널의 `수집 설정`에서 사용할 플랫폼을 켭니다.
+3. 플랫폼별 최대 콘텐츠 수를 `50`, `100`, `250`, `500` 중 선택합니다.
+4. `수집하고 CSV 다운로드`를 누릅니다.
+5. 최초 실행이면 선택한 사이트의 접근 권한을 한 번에 허용합니다.
+6. 수집이 끝나면 UTF-8 BOM CSV가 자동으로 다운로드됩니다.
+
+플랫폼 프로필 탭을 미리 열 필요는 없습니다. 열려 있는 프로필 탭은 첫 계정 탐색에 참고하고, 없으면 확장프로그램이 로그인된 홈 화면이나 이전에 저장한 핸들에서 계정을 찾습니다. 플랫폼 하나가 실패해도 성공한 플랫폼의 행은 보존되어 부분 결과 CSV가 생성됩니다.
 
 ## 시작하기
 
@@ -33,7 +44,7 @@ pnpm dev
 | `pnpm lint` | Biome 정적 검사 |
 | `pnpm secrets:generate` | 로컬 token 암호화 키 생성 |
 | `pnpm typecheck` | 모든 workspace TypeScript 검사 |
-| `pnpm test` | 계약 및 API 테스트 |
+| `pnpm test` | 계약, API, 수집기 및 CSV 테스트 |
 | `pnpm build` | 모든 workspace 프로덕션 빌드 |
 | `pnpm check` | lint, typecheck, test, build 전체 실행 |
 
@@ -48,7 +59,7 @@ packages/
 docs/                     제품, API 가용성, 아키텍처, 로드맵
 ```
 
-확장프로그램은 OAuth 비밀키나 갱신 토큰을 저장하지 않습니다. TikTok, Instagram, X의 공개 성과 수집은 로그인된 Chrome 탭에서 로컬로 수행하고, YouTube 분석과 공식 게시 API는 별도 백엔드가 담당합니다.
+브라우저 수집 경로는 OAuth 비밀키, 갱신 토큰, 쿠키를 저장하지 않습니다. TikTok, Instagram, X의 공개 성과 수집은 로그인된 Chrome 세션에서 로컬로 수행하고, 기존 YouTube 분석 API와 향후 공식 게시 API는 별도 백엔드 경로로 분리합니다.
 
 ## 제품 원칙
 
@@ -76,4 +87,4 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 
 ## 현재 범위
 
-YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. loorbit 실계정으로 TikTok Studio, Instagram Reel, X 프로필의 DOM 수집 가능성과 통합 CSV를 검증했습니다. 다음 단계는 로컬 수집 오케스트레이터와 TikTok 수직 슬라이스이며, 이후 공식 API 기반 교차 플랫폼 게시를 추가합니다. 댓글 작성과 DM 관리는 MVP 범위에 포함하지 않습니다.
+Chrome MV3 사이드 패널, 선택적 사이트 권한, 플랫폼 토글 설정, 임시 탭 오케스트레이터, TikTok Studio·Instagram Reel·X 프로필 수집기, IndexedDB 저장, 부분 성공, 재시도와 자동 CSV 다운로드가 구현되어 있습니다. `0`과 미제공 지표를 구분하며 개인정보를 제거한 DOM fixture와 CSV 계약 테스트를 포함합니다. 댓글 작성, DM 관리와 자동 업로드는 현재 CSV MVP 범위에 포함하지 않습니다.

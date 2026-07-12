@@ -25,12 +25,19 @@
 - 네 플랫폼 20행, 24열 UTF-8 CSV 생성과 재가져오기 검증
 - Instagram 좋아요와 댓글 0 판별 검증
 - 로컬 수집 및 공식 API 게시 설계
+- 브라우저 수집 계약, 숫자·날짜 정규화와 29열 CSV exporter
+- TikTok Studio, Instagram Reel, X 프로필 DOM 수집기와 스크롤 수집
+- 비활성 임시 탭 오케스트레이터, IndexedDB 실행·레코드 저장과 부분 성공
+- 플랫폼 토글·수집 한도 영구 설정과 원클릭 자동 CSV 다운로드
+- 개인정보 제거 DOM fixture, CSV와 설정 회귀 테스트
 
-다음 구현은 **TikTok 수집 시작 → 정규화 → IndexedDB → CSV**를 한 번 완주하는 수직 슬라이스다.
+다음 구현은 **설치된 Chrome 프로필에서 원클릭 전체 수집을 반복 smoke test하고 selector 진단을 강화하는 단계**다. 이후 누적 스냅샷의 콘텐츠별 변화량과 인기도 추이로 진행한다.
 
 CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고리즘과 PR 단위는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 따른다.
 
 ## Phase 1: 브라우저 수집 기반
+
+상태: 완료
 
 예상: 2~3일
 
@@ -50,10 +57,12 @@ CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고�
 
 ## Phase 2: 탭 오케스트레이터
 
+상태: MVP 완료. 서비스 워커 중단 시 자동 이어받기는 후속 보강
+
 예상: 2~3일
 
 - 플랫폼별 선택적 host permission
-- 기존 정확한 탭 탐색과 읽기 전용 재사용
+- 열린 탭의 계정 핸들 탐색과 전용 임시 탭 수집
 - 비활성 임시 탭 생성과 확장 소유권 기록
 - 페이지 준비 감지와 활성 탭 fallback
 - 취소, timeout, 부분 성공
@@ -68,6 +77,8 @@ CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고�
 - 브라우저 중단 후 결과를 잃지 않고 이어할 수 있다.
 
 ## Phase 3: TikTok 수직 슬라이스
+
+상태: 완료
 
 예상: 2~3일
 
@@ -86,6 +97,8 @@ CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고�
 
 ## Phase 4: X collector
 
+상태: 완료
+
 예상: 2일
 
 - 프로필 요약과 타임라인 article parser
@@ -100,6 +113,8 @@ CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고�
 - 오래된 게시물 로딩이 중단되면 partial coverage를 남긴다.
 
 ## Phase 5: Instagram collector
+
+상태: 완료. Professional Dashboard 조회수는 후속 조사
 
 예상: 3일
 
@@ -118,12 +133,14 @@ CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고�
 
 ## Phase 6: 통합 수집 UX와 추이
 
+상태: 원클릭 수집·자동 CSV·재시도 완료, 스냅샷 delta와 추이 UI 미구현
+
 예상: 3~4일
 
-- `전체 채널 수집`과 플랫폼별 진행 상태
+- `수집하고 CSV 다운로드`와 플랫폼별 진행 상태
 - 발견 콘텐츠 수, elapsed time, 취소
 - 성공/부분 실패/누락 지표 요약
-- 최신 결과 미리보기와 CSV 저장
+- 최신 결과 미리보기와 자동 CSV 저장
 - 플랫폼별 재시도
 - 동일 콘텐츠 수동 묶기
 - 스냅샷 delta와 시간당 증가량
