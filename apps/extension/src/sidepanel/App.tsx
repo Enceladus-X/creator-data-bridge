@@ -7,6 +7,7 @@ import type {
 import {
   AlertTriangle,
   Check,
+  Copy,
   DatabaseZap,
   FileDown,
   LayoutDashboard,
@@ -20,24 +21,35 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { browserPlatforms } from "../collection/preferences";
-import { openDashboard } from "../shared/chrome";
+import { copyText, openDashboard } from "../shared/chrome";
 import { requestAllPlatformPermissions, useBrowserCollection } from "../shared/collection";
+import {
+  type AppLocale,
+  localeTag,
+  localizeError,
+  localizeLogDetail,
+  localizeLogMessage,
+  t,
+} from "../shared/i18n";
 import { platforms } from "../shared/platforms";
 
-const statusLabels: Record<PlatformCheckpoint["state"], string> = {
-  pending: "대기",
-  opening: "페이지 여는 중",
-  waiting: "페이지 준비 중",
-  collecting: "콘텐츠 읽는 중",
-  normalizing: "데이터 정리 중",
-  completed: "완료",
-  failed: "확인 필요",
-  cancelled: "중단됨",
-};
+function statusLabel(locale: AppLocale, state: PlatformCheckpoint["state"]) {
+  const keys: Record<PlatformCheckpoint["state"], Parameters<typeof t>[1]> = {
+    pending: "pending",
+    opening: "opening",
+    waiting: "waiting",
+    collecting: "collecting",
+    normalizing: "normalizing",
+    completed: "completed",
+    failed: "needsAttention",
+    cancelled: "cancelled",
+  };
+  return t(locale, keys[state]);
+}
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "아직 수집 전";
-  return new Intl.DateTimeFormat("ko-KR", {
+function formatDate(locale: AppLocale, value: string | null | undefined) {
+  if (!value) return t(locale, "neverCollected");
+  return new Intl.DateTimeFormat(localeTag(locale), {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -45,8 +57,8 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
-function formatLogTime(value: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
+function formatLogTime(locale: AppLocale, value: string) {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -54,13 +66,13 @@ function formatLogTime(value: string) {
   }).format(new Date(value));
 }
 
-function runLabel(state: string | undefined) {
-  if (state === "running" || state === "preflight") return "수집 중";
-  if (state === "completed") return "수집 완료";
-  if (state === "partially_completed") return "일부 완료";
-  if (state === "failed") return "수집 실패";
-  if (state === "cancelled") return "수집 중단";
-  return "준비됨";
+function runLabel(locale: AppLocale, state: string | undefined) {
+  if (state === "running" || state === "preflight") return t(locale, "runCollecting");
+  if (state === "completed") return t(locale, "runCompleted");
+  if (state === "partially_completed") return t(locale, "runPartial");
+  if (state === "failed") return t(locale, "runFailed");
+  if (state === "cancelled") return t(locale, "runCancelled");
+  return t(locale, "ready");
 }
 
 function countUnavailable(records: CollectionRecord[]) {
@@ -79,7 +91,27 @@ function countUnavailable(records: CollectionRecord[]) {
   }, 0);
 }
 
+export function buildLogClipboardText(logs: CollectionLogEntry[], locale: AppLocale) {
+  return logs
+    .map((entry) => {
+      const metadata = entry.platform
+        ? platforms.find((platform) => platform.id === entry.platform)
+        : null;
+      const detail = localizeLogDetail(locale, entry.detail);
+      return [
+        `[${formatLogTime(locale, entry.at)}]`,
+        metadata ? `[${metadata.label}]` : "",
+        localizeLogMessage(locale, entry.message),
+        detail ? `· ${detail}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    })
+    .join("\n");
+}
+
 function PlatformStatus({
+  locale,
   platform,
   checkpoint,
   permitted,
@@ -88,6 +120,7 @@ function PlatformStatus({
   onToggle,
   onRetry,
 }: {
+  locale: AppLocale;
   platform: BrowserPlatform;
   checkpoint: PlatformCheckpoint | undefined;
   permitted: boolean;
@@ -105,13 +138,16 @@ function PlatformStatus({
       ? "permission"
       : (checkpoint?.state ?? "pending");
   const detail = !selected
-    ? "수집에서 제외됨"
+    ? t(locale, "excludedDetail")
     : !permitted
-      ? "다음 수집 시 사이트 권한을 요청합니다"
-      : (checkpoint?.errorMessage ??
+      ? t(locale, "permissionNextRun")
+      : (localizeError(locale, checkpoint?.errorMessage ?? null) ??
         (checkpoint?.accountHandle
-          ? `${checkpoint.accountHandle} · 콘텐츠 ${checkpoint.discovered.toLocaleString("ko-KR")}개`
-          : statusLabels[checkpoint?.state ?? "pending"]));
+          ? t(locale, "accountContent", {
+              account: checkpoint.accountHandle,
+              count: checkpoint.discovered.toLocaleString(localeTag(locale)),
+            })
+          : statusLabel(locale, checkpoint?.state ?? "pending")));
 
   return (
     <article className={`collection-platform ${state}`}>
@@ -127,10 +163,10 @@ function PlatformStatus({
           <span className={`platform-state ${state}`}>
             {checkpoint?.state === "completed" ? <Check size={13} /> : null}
             {!selected
-              ? "제외"
+              ? t(locale, "excluded")
               : !permitted
-                ? "권한 대기"
-                : statusLabels[checkpoint?.state ?? "pending"]}
+                ? t(locale, "permissionPending")
+                : statusLabel(locale, checkpoint?.state ?? "pending")}
           </span>
         </div>
         <span title={detail}>{detail}</span>
@@ -140,19 +176,22 @@ function PlatformStatus({
           <button
             className="retry-button"
             type="button"
-            title={`${metadata.label} 다시 수집`}
+            title={t(locale, "retryCollection", { platform: metadata.label })}
             onClick={onRetry}
             disabled={disabled}
           >
             <RefreshCw size={15} />
           </button>
         ) : null}
-        <label className="platform-switch" title={`${metadata.label} 수집 설정`}>
+        <label
+          className="platform-switch"
+          title={t(locale, "platformCollectionSetting", { platform: metadata.label })}
+        >
           <input
             type="checkbox"
             checked={selected}
             disabled={disabled}
-            aria-label={`${metadata.label} 수집`}
+            aria-label={t(locale, "platformCollectionSetting", { platform: metadata.label })}
             onChange={onToggle}
           />
           <span />
@@ -162,22 +201,44 @@ function PlatformStatus({
   );
 }
 
-function ExecutionLog({ logs }: { logs: CollectionLogEntry[] }) {
+function ExecutionLog({ logs, locale }: { logs: CollectionLogEntry[]; locale: AppLocale }) {
   const logEnd = useRef<HTMLDivElement | null>(null);
   const lastLogId = logs.at(-1)?.id;
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
     if (lastLogId) logEnd.current?.scrollIntoView({ block: "nearest" });
   }, [lastLogId]);
+
+  const copyLogs = async () => {
+    const copied = await copyText(buildLogClipboardText(logs, locale));
+    setCopyState(copied ? "copied" : "failed");
+    window.setTimeout(() => setCopyState("idle"), 1_600);
+  };
 
   return (
     <section className="execution-log" aria-labelledby="execution-log-title">
       <div className="section-heading log-heading">
         <div>
           <ScrollText size={16} />
-          <h2 id="execution-log-title">전체 실행 로그</h2>
+          <h2 id="execution-log-title">{t(locale, "fullExecutionLog")}</h2>
         </div>
-        <span>{logs.length}건</span>
+        <div className="log-heading-actions">
+          <span>{t(locale, "logCount", { count: logs.length })}</span>
+          <button
+            type="button"
+            title={t(locale, "copyLogs")}
+            disabled={logs.length === 0}
+            onClick={() => void copyLogs()}
+          >
+            {copyState === "copied" ? <Check size={14} /> : <Copy size={14} />}
+            {copyState === "copied"
+              ? t(locale, "logsCopied")
+              : copyState === "failed"
+                ? t(locale, "logsCopyFailed")
+                : t(locale, "copyLogs")}
+          </button>
+        </div>
       </div>
       <div className="log-list" role="log" aria-live="polite">
         {logs.length ? (
@@ -187,20 +248,20 @@ function ExecutionLog({ logs }: { logs: CollectionLogEntry[] }) {
               : null;
             return (
               <div className={`log-row ${entry.level}`} key={entry.id}>
-                <time dateTime={entry.at}>{formatLogTime(entry.at)}</time>
+                <time dateTime={entry.at}>{formatLogTime(locale, entry.at)}</time>
                 <span className="log-level-dot" aria-hidden="true" />
                 <div>
                   <strong>
                     {metadata ? <span>{metadata.label}</span> : null}
-                    {entry.message}
+                    {localizeLogMessage(locale, entry.message)}
                   </strong>
-                  {entry.detail ? <small>{entry.detail}</small> : null}
+                  {entry.detail ? <small>{localizeLogDetail(locale, entry.detail)}</small> : null}
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="log-empty">수집을 실행하면 단계별 기록이 여기에 표시됩니다.</div>
+          <div className="log-empty">{t(locale, "logEmpty")}</div>
         )}
         <div ref={logEnd} />
       </div>
@@ -226,7 +287,9 @@ export function App() {
     exportCsv,
     clear,
     togglePlatform,
+    setLocale,
   } = useBrowserCollection();
+  const locale = preferences.locale;
   const run = snapshot.run;
   const records = snapshot.records;
   const content = records.filter((record) => record.recordType === "content");
@@ -259,13 +322,13 @@ export function App() {
         </div>
         <div className="panel-title">
           <strong>Creator Data Bridge</strong>
-          <span>{formatDate(run?.completedAt ?? run?.createdAt)}</span>
+          <span>{formatDate(locale, run?.completedAt ?? run?.createdAt)}</span>
         </div>
         <div className="panel-header-actions">
           <button
             className="icon-button"
             type="button"
-            title="전체 대시보드"
+            title={t(locale, "fullDashboard")}
             onClick={() => openDashboard()}
           >
             <LayoutDashboard size={18} />
@@ -273,7 +336,11 @@ export function App() {
           <button
             className={`icon-button ${activeView === "settings" ? "active" : ""}`}
             type="button"
-            title={activeView === "settings" ? "수집 화면" : "수집 설정"}
+            title={
+              activeView === "settings"
+                ? t(locale, "collectionView")
+                : t(locale, "collectionSettings")
+            }
             aria-pressed={activeView === "settings"}
             onClick={() => setActiveView(activeView === "settings" ? "main" : "settings")}
           >
@@ -287,32 +354,64 @@ export function App() {
           <span className="eyebrow">
             {activeView === "settings" ? "COLLECTION SETTINGS" : "CHANNEL SNAPSHOT"}
           </span>
-          <h1>{activeView === "settings" ? "수집 플랫폼" : "채널 데이터 수집"}</h1>
+          <h1>
+            {activeView === "settings"
+              ? t(locale, "collectionPlatforms")
+              : t(locale, "channelDataCollection")}
+          </h1>
         </div>
         <span className={`run-badge ${run?.state ?? "idle"}`}>
-          {activeView === "settings" ? `${selectedPlatforms.length}개 사용` : runLabel(run?.state)}
+          {activeView === "settings"
+            ? t(locale, "platformsEnabled", { count: selectedPlatforms.length })
+            : runLabel(locale, run?.state)}
         </span>
       </section>
 
       {error ? (
         <div className="panel-notice error">
           <AlertTriangle size={16} />
-          <span>{error}</span>
+          <span>{localizeError(locale, error)}</span>
         </div>
       ) : null}
 
       {activeView === "settings" ? (
-        <section className="platform-section" aria-label="수집 플랫폼 설정">
+        <section className="platform-section" aria-label={t(locale, "collectionPlatforms")}>
           <div className="section-heading">
             <div>
-              <h2>플랫폼 선택</h2>
-              <p>설정은 즉시 저장되며 다음 수집부터 적용됩니다.</p>
+              <h2>{t(locale, "platformSelection")}</h2>
+              <p>{t(locale, "settingsSavedNextRun")}</p>
             </div>
+          </div>
+          <div className="language-setting">
+            <div>
+              <strong>{t(locale, "language")}</strong>
+              <span>{t(locale, "languageDescription")}</span>
+            </div>
+            <fieldset className="language-control">
+              <legend className="sr-only">{t(locale, "language")}</legend>
+              <button
+                type="button"
+                className={locale === "ko" ? "active" : ""}
+                aria-pressed={locale === "ko"}
+                onClick={() => setLocale("ko")}
+              >
+                {t(locale, "korean")}
+              </button>
+              <button
+                type="button"
+                className={locale === "en" ? "active" : ""}
+                aria-pressed={locale === "en"}
+                onClick={() => setLocale("en")}
+              >
+                English
+              </button>
+            </fieldset>
           </div>
           <div className="platform-list">
             {browserPlatforms.map((platform) => (
               <PlatformStatus
                 key={platform}
+                locale={locale}
                 platform={platform}
                 checkpoint={run?.platforms[platform]}
                 permitted={permissions[platform]}
@@ -326,7 +425,7 @@ export function App() {
         </section>
       ) : (
         <>
-          <section className="panel-actions" aria-label="수집 및 내보내기">
+          <section className="panel-actions" aria-label={t(locale, "collectAndExport")}>
             {running ? (
               <button
                 className="secondary-button stop-button"
@@ -334,7 +433,7 @@ export function App() {
                 onClick={() => void cancel()}
               >
                 <Square size={15} />
-                수집 중단
+                {t(locale, "stopCollection")}
               </button>
             ) : (
               <button
@@ -344,7 +443,7 @@ export function App() {
                 onClick={() => void startAll()}
               >
                 {loading ? <LoaderCircle size={17} className="spinning" /> : <Play size={17} />}
-                수집
+                {t(locale, "collect")}
               </button>
             )}
             <button
@@ -354,14 +453,14 @@ export function App() {
               onClick={() => void exportCsv()}
             >
               {exporting ? <LoaderCircle size={16} className="spinning" /> : <FileDown size={16} />}
-              CSV 다운로드
+              {t(locale, "csvDownload")}
             </button>
           </section>
 
           {run ? (
-            <section className="progress-section" aria-label="수집 진행 상태">
+            <section className="progress-section" aria-label={t(locale, "progressStatus")}>
               <div className="progress-copy">
-                <span>{running ? "플랫폼 데이터를 읽고 있습니다" : runLabel(run.state)}</span>
+                <span>{running ? t(locale, "readingPlatforms") : runLabel(locale, run.state)}</span>
                 <strong>{progress}%</strong>
               </div>
               <div className="progress-track" aria-hidden="true">
@@ -370,31 +469,31 @@ export function App() {
             </section>
           ) : null}
 
-          <section className="collection-metrics" aria-label="수집 결과 요약">
+          <section className="collection-metrics" aria-label={t(locale, "resultSummary")}>
             <div>
-              <span>콘텐츠</span>
-              <strong>{content.length.toLocaleString("ko-KR")}</strong>
+              <span>{t(locale, "content")}</span>
+              <strong>{content.length.toLocaleString(localeTag(locale))}</strong>
             </div>
             <div>
-              <span>CSV 행</span>
-              <strong>{records.length.toLocaleString("ko-KR")}</strong>
+              <span>{t(locale, "csvRows")}</span>
+              <strong>{records.length.toLocaleString(localeTag(locale))}</strong>
             </div>
             <div>
-              <span>제한 지표</span>
-              <strong>{unavailable.toLocaleString("ko-KR")}</strong>
+              <span>{t(locale, "limitedMetrics")}</span>
+              <strong>{unavailable.toLocaleString(localeTag(locale))}</strong>
             </div>
           </section>
 
-          <ExecutionLog logs={run?.logs ?? []} />
+          <ExecutionLog logs={run?.logs ?? []} locale={locale} />
         </>
       )}
 
       <footer className="panel-footer">
         <span className="status-dot online" />
-        <span>로컬 저장 · 외부 전송 없음</span>
+        <span>{t(locale, "localOnly")}</span>
         <button
           type="button"
-          title="수집 기록 삭제"
+          title={t(locale, "deleteHistory")}
           disabled={running || records.length === 0}
           onClick={() => void clear()}
         >

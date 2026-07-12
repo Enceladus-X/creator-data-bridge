@@ -17,6 +17,7 @@ import type {
   CsvExportResponse,
 } from "../collection/types";
 import { platformPermissionOrigins } from "../collection/types";
+import { type AppLocale, defaultLocaleForLanguage } from "./i18n";
 
 interface RuntimeResponse<T> {
   ok: boolean;
@@ -78,7 +79,18 @@ export function useBrowserCollection() {
     void chrome.storage.local
       .get(collectionPreferencesStorageKey)
       .then((result) => {
-        setPreferences(normalizeCollectionPreferences(result[collectionPreferencesStorageKey]));
+        const stored = result[collectionPreferencesStorageKey];
+        const next =
+          stored === undefined
+            ? {
+                ...defaultCollectionPreferences,
+                locale: defaultLocaleForLanguage(chrome.i18n.getUILanguage()),
+              }
+            : normalizeCollectionPreferences(stored);
+        setPreferences(next);
+        if (stored === undefined) {
+          void chrome.storage.local.set({ [collectionPreferencesStorageKey]: next });
+        }
       })
       .catch(() => setError("수집 설정을 읽지 못했습니다."))
       .finally(() => setPreferencesLoading(false));
@@ -206,6 +218,13 @@ export function useBrowserCollection() {
     [persistPreferences, preferences],
   );
 
+  const setLocale = useCallback(
+    (locale: AppLocale) => {
+      persistPreferences({ ...preferences, locale });
+    },
+    [persistPreferences, preferences],
+  );
+
   const snapshot: CollectionSnapshot = useMemo(
     () => ({ run: state.run, records: state.records }),
     [state.records, state.run],
@@ -227,5 +246,6 @@ export function useBrowserCollection() {
     exportCsv,
     clear,
     togglePlatform,
+    setLocale,
   };
 }

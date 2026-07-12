@@ -1,16 +1,19 @@
 import type { BrowserPlatform } from "@creator-data-bridge/contracts";
+import { type AppLocale, appLocales } from "../shared/i18n";
 
 export const browserPlatforms: BrowserPlatform[] = ["youtube", "tiktok", "x", "instagram"];
 export const collectionPreferencesStorageKey = "collection.preferences";
 
 export interface CollectionPreferences {
-  schemaVersion: 3;
+  schemaVersion: 4;
   enabledPlatforms: BrowserPlatform[];
+  locale: AppLocale;
 }
 
 export const defaultCollectionPreferences: CollectionPreferences = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   enabledPlatforms: [...browserPlatforms],
+  locale: "ko",
 };
 
 export function normalizeCollectionPreferences(value: unknown): CollectionPreferences {
@@ -19,7 +22,7 @@ export function normalizeCollectionPreferences(value: unknown): CollectionPrefer
     schemaVersion?: number;
     itemLimit?: unknown;
   };
-  const isLegacyPreference = candidate.schemaVersion !== 2 && candidate.schemaVersion !== 3;
+  const isLegacyPreference = ![2, 3, 4].includes(candidate.schemaVersion ?? 0);
   const storedPlatforms = Array.isArray(candidate.enabledPlatforms)
     ? candidate.enabledPlatforms
     : null;
@@ -29,5 +32,8 @@ export function normalizeCollectionPreferences(value: unknown): CollectionPrefer
           (isLegacyPreference && platform === "youtube") || storedPlatforms.includes(platform),
       )
     : defaultCollectionPreferences.enabledPlatforms;
-  return { schemaVersion: 3, enabledPlatforms };
+  const locale = appLocales.includes(candidate.locale as AppLocale)
+    ? (candidate.locale as AppLocale)
+    : defaultCollectionPreferences.locale;
+  return { schemaVersion: 4, enabledPlatforms, locale };
 }

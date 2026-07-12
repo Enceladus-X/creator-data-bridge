@@ -14,14 +14,15 @@ import { type CSSProperties, useMemo, useState } from "react";
 import { browserPlatforms } from "../collection/preferences";
 import { openCollectionPanel } from "../shared/chrome";
 import { useBrowserCollection } from "../shared/collection";
+import { type AppLocale, localeTag, localizeError, t } from "../shared/i18n";
 import { platforms } from "../shared/platforms";
 
 const dashboardViews = [
-  { id: "overview", label: "개요", icon: LayoutDashboard },
-  { id: "content", label: "콘텐츠", icon: Rows3 },
-  { id: "compare", label: "플랫폼 비교", icon: BarChart3 },
-  { id: "exports", label: "내보내기", icon: FileDown },
-  { id: "settings", label: "설정", icon: Settings },
+  { id: "overview", icon: LayoutDashboard },
+  { id: "content", icon: Rows3 },
+  { id: "compare", icon: BarChart3 },
+  { id: "exports", icon: FileDown },
+  { id: "settings", icon: Settings },
 ] as const;
 
 type DashboardView = (typeof dashboardViews)[number]["id"];
@@ -34,9 +35,20 @@ export function formatMetric(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : metricFormatter.format(value);
 }
 
-function formatDate(value: string | null | undefined) {
+function dashboardViewLabel(locale: AppLocale, view: DashboardView) {
+  const keys: Record<DashboardView, Parameters<typeof t>[1]> = {
+    overview: "overview",
+    content: "content",
+    compare: "compare",
+    exports: "exports",
+    settings: "settings",
+  };
+  return t(locale, keys[view]);
+}
+
+function formatDate(locale: AppLocale, value: string | null | undefined) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(localeTag(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -55,24 +67,24 @@ function platformMetadata(platform: CollectionRecord["platform"]) {
   return metadata;
 }
 
-function runStateLabel(state: string | undefined) {
-  if (state === "preflight" || state === "running") return "수집 중";
-  if (state === "completed") return "완료";
-  if (state === "partially_completed") return "일부 완료";
-  if (state === "failed") return "실패";
-  if (state === "cancelled") return "중단됨";
-  return "수집 전";
+function runStateLabel(locale: AppLocale, state: string | undefined) {
+  if (state === "preflight" || state === "running") return t(locale, "runCollecting");
+  if (state === "completed") return t(locale, "completed");
+  if (state === "partially_completed") return t(locale, "runPartial");
+  if (state === "failed") return t(locale, "runFailed");
+  if (state === "cancelled") return t(locale, "cancelled");
+  return t(locale, "neverCollected");
 }
 
-function EmptyData({ onCollect }: { onCollect: () => void }) {
+function EmptyData({ onCollect, locale }: { onCollect: () => void; locale: AppLocale }) {
   return (
     <div className="dashboard-empty">
       <DatabaseZap size={30} />
-      <strong>표시할 수집 데이터가 없습니다</strong>
-      <span>사이드패널에서 채널 데이터를 수집하면 이곳에 바로 표시됩니다.</span>
+      <strong>{t(locale, "noDataTitle")}</strong>
+      <span>{t(locale, "noDataBody")}</span>
       <button className="primary-button" type="button" onClick={onCollect}>
         <PanelRightOpen size={16} />
-        수집 패널 열기
+        {t(locale, "openCollectionPanel")}
       </button>
     </div>
   );
@@ -88,6 +100,13 @@ export interface PlatformSummary {
   comments: number;
   unavailable: number;
   state: string;
+}
+
+export function platformUploadUrl(platform: BrowserPlatform, _accountHandle: string | null = null) {
+  if (platform === "youtube") return "https://www.youtube.com/upload";
+  if (platform === "tiktok") return "https://www.tiktok.com/tiktokstudio/upload";
+  if (platform === "x") return "https://x.com/compose/post";
+  return "https://www.instagram.com/create/select/";
 }
 
 export function buildPlatformSummaries(
@@ -123,9 +142,11 @@ export function buildPlatformSummaries(
 function OverviewPanel({
   summaries,
   content,
+  locale,
 }: {
   summaries: PlatformSummary[];
   content: CollectionRecord[];
+  locale: AppLocale;
 }) {
   const leaders = [...content]
     .sort((left, right) => (right.views ?? -1) - (left.views ?? -1))
@@ -135,18 +156,18 @@ function OverviewPanel({
       <section className="dashboard-section" aria-labelledby="platform-overview-title">
         <div className="dashboard-section-heading">
           <div>
-            <h2 id="platform-overview-title">플랫폼 성과</h2>
-            <span>최신 로컬 스냅샷</span>
+            <h2 id="platform-overview-title">{t(locale, "platformPerformance")}</h2>
+            <span>{t(locale, "latestSnapshot")}</span>
           </div>
         </div>
         <div className="platform-performance-table">
           <div className="performance-header">
-            <span>플랫폼</span>
-            <span>콘텐츠</span>
-            <span>조회</span>
-            <span>좋아요</span>
-            <span>댓글</span>
-            <span>상태</span>
+            <span>{t(locale, "platform")}</span>
+            <span>{t(locale, "content")}</span>
+            <span>{t(locale, "views")}</span>
+            <span>{t(locale, "likes")}</span>
+            <span>{t(locale, "comments")}</span>
+            <span>{t(locale, "status")}</span>
           </div>
           {summaries.map((summary) => {
             const metadata = platformMetadata(summary.platform);
@@ -154,12 +175,20 @@ function OverviewPanel({
             return (
               <div className="performance-row" key={summary.platform}>
                 <div className="performance-platform">
-                  <span style={{ color: metadata.color, backgroundColor: metadata.tint }}>
+                  <a
+                    className="performance-platform-link"
+                    href={platformUploadUrl(summary.platform, summary.accountHandle)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={t(locale, "openUploadPage", { platform: metadata.label })}
+                    aria-label={t(locale, "openUploadPage", { platform: metadata.label })}
+                    style={{ color: metadata.color, backgroundColor: metadata.tint }}
+                  >
                     <Icon size={18} />
-                  </span>
+                  </a>
                   <div>
                     <strong>{metadata.label}</strong>
-                    <small>{summary.accountHandle ?? "계정 미확인"}</small>
+                    <small>{summary.accountHandle ?? t(locale, "accountUnknown")}</small>
                   </div>
                 </div>
                 <span>{summary.contentCount}</span>
@@ -167,8 +196,10 @@ function OverviewPanel({
                 <span>{formatMetric(summary.likes)}</span>
                 <span>{formatMetric(summary.comments)}</span>
                 <span className={`collection-state ${summary.state}`}>
-                  {runStateLabel(summary.state)}
-                  {summary.unavailable ? ` · 제한 ${summary.unavailable}` : ""}
+                  {runStateLabel(locale, summary.state)}
+                  {summary.unavailable
+                    ? ` · ${t(locale, "limitations", { count: summary.unavailable })}`
+                    : ""}
                 </span>
               </div>
             );
@@ -179,8 +210,8 @@ function OverviewPanel({
       <section className="dashboard-section" aria-labelledby="content-leaders-title">
         <div className="dashboard-section-heading">
           <div>
-            <h2 id="content-leaders-title">조회 상위 콘텐츠</h2>
-            <span>조회수가 제공된 콘텐츠 기준</span>
+            <h2 id="content-leaders-title">{t(locale, "topContent")}</h2>
+            <span>{t(locale, "contentWithViews")}</span>
           </div>
         </div>
         <div className="leader-list">
@@ -201,7 +232,7 @@ function OverviewPanel({
               </a>
             ))
           ) : (
-            <div className="section-empty">조회수가 제공된 콘텐츠가 없습니다.</div>
+            <div className="section-empty">{t(locale, "noViewContent")}</div>
           )}
         </div>
       </section>
@@ -209,7 +240,7 @@ function OverviewPanel({
   );
 }
 
-function ContentPanel({ content }: { content: CollectionRecord[] }) {
+function ContentPanel({ content, locale }: { content: CollectionRecord[]; locale: AppLocale }) {
   const [platformFilter, setPlatformFilter] = useState<"all" | BrowserPlatform>("all");
   const [sortBy, setSortBy] = useState<ContentSort>("views");
   const [query, setQuery] = useState("");
@@ -235,27 +266,27 @@ function ContentPanel({ content }: { content: CollectionRecord[] }) {
     <section className="dashboard-section content-analysis" aria-labelledby="content-table-title">
       <div className="dashboard-section-heading content-toolbar">
         <div>
-          <h2 id="content-table-title">콘텐츠 데이터</h2>
-          <span>{visible.length}개 표시</span>
+          <h2 id="content-table-title">{t(locale, "contentData")}</h2>
+          <span>{t(locale, "shownCount", { count: visible.length })}</span>
         </div>
         <div className="content-controls">
           <label className="search-field">
             <Search size={15} />
-            <span className="sr-only">콘텐츠 검색</span>
+            <span className="sr-only">{t(locale, "searchContent")}</span>
             <input
               type="search"
               value={query}
-              placeholder="제목 또는 ID 검색"
+              placeholder={t(locale, "searchPlaceholder")}
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
           <label>
-            <span className="sr-only">플랫폼 필터</span>
+            <span className="sr-only">{t(locale, "platformFilter")}</span>
             <select
               value={platformFilter}
               onChange={(event) => setPlatformFilter(event.target.value as "all" | BrowserPlatform)}
             >
-              <option value="all">전체 플랫폼</option>
+              <option value="all">{t(locale, "allPlatforms")}</option>
               {browserPlatforms.map((platform) => (
                 <option value={platform} key={platform}>
                   {platformMetadata(platform).label}
@@ -264,27 +295,27 @@ function ContentPanel({ content }: { content: CollectionRecord[] }) {
             </select>
           </label>
           <label>
-            <span className="sr-only">정렬 기준</span>
+            <span className="sr-only">{t(locale, "sortBy")}</span>
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as ContentSort)}
             >
-              <option value="views">조회순</option>
-              <option value="likes">좋아요순</option>
-              <option value="comments">댓글순</option>
-              <option value="publishedAt">게시일순</option>
+              <option value="views">{t(locale, "sortViews")}</option>
+              <option value="likes">{t(locale, "sortLikes")}</option>
+              <option value="comments">{t(locale, "sortComments")}</option>
+              <option value="publishedAt">{t(locale, "sortPublished")}</option>
             </select>
           </label>
         </div>
       </div>
       <div className="collection-content-table">
         <div className="collection-content-header">
-          <span>플랫폼</span>
-          <span>콘텐츠</span>
-          <span>게시일</span>
-          <span>조회</span>
-          <span>좋아요</span>
-          <span>댓글</span>
+          <span>{t(locale, "platform")}</span>
+          <span>{t(locale, "content")}</span>
+          <span>{t(locale, "publishedAt")}</span>
+          <span>{t(locale, "views")}</span>
+          <span>{t(locale, "likes")}</span>
+          <span>{t(locale, "comments")}</span>
         </div>
         {visible.map((record) => {
           const metadata = platformMetadata(record.platform);
@@ -312,13 +343,19 @@ function ContentPanel({ content }: { content: CollectionRecord[] }) {
         })}
       </div>
       {visible.length === 0 ? (
-        <div className="section-empty">조건에 맞는 콘텐츠가 없습니다.</div>
+        <div className="section-empty">{t(locale, "noMatchingContent")}</div>
       ) : null}
     </section>
   );
 }
 
-function ComparisonPanel({ summaries }: { summaries: PlatformSummary[] }) {
+function ComparisonPanel({
+  summaries,
+  locale,
+}: {
+  summaries: PlatformSummary[];
+  locale: AppLocale;
+}) {
   const maximumViews = Math.max(...summaries.map((summary) => summary.views), 1);
   const maximumEngagement = Math.max(
     ...summaries.map((summary) => summary.likes + summary.comments),
@@ -329,11 +366,11 @@ function ComparisonPanel({ summaries }: { summaries: PlatformSummary[] }) {
       <section className="dashboard-section" aria-labelledby="views-comparison-title">
         <div className="dashboard-section-heading">
           <div>
-            <h2 id="views-comparison-title">플랫폼별 조회</h2>
-            <span>조회수 제공 범위 내 합계</span>
+            <h2 id="views-comparison-title">{t(locale, "viewsByPlatform")}</h2>
+            <span>{t(locale, "knownViewsTotal")}</span>
           </div>
         </div>
-        <div className="comparison-chart" role="img" aria-label="플랫폼별 조회수 비교 막대그래프">
+        <div className="comparison-chart" role="img" aria-label={t(locale, "viewsChart")}>
           {summaries.map((summary) => {
             const metadata = platformMetadata(summary.platform);
             return (
@@ -361,15 +398,11 @@ function ComparisonPanel({ summaries }: { summaries: PlatformSummary[] }) {
       <section className="dashboard-section" aria-labelledby="engagement-comparison-title">
         <div className="dashboard-section-heading">
           <div>
-            <h2 id="engagement-comparison-title">플랫폼별 반응</h2>
-            <span>좋아요와 댓글 합계</span>
+            <h2 id="engagement-comparison-title">{t(locale, "engagementByPlatform")}</h2>
+            <span>{t(locale, "likesAndComments")}</span>
           </div>
         </div>
-        <div
-          className="comparison-chart"
-          role="img"
-          aria-label="플랫폼별 좋아요와 댓글 비교 막대그래프"
-        >
+        <div className="comparison-chart" role="img" aria-label={t(locale, "engagementChart")}>
           {summaries.map((summary) => {
             const metadata = platformMetadata(summary.platform);
             const engagement = summary.likes + summary.comments;
@@ -400,10 +433,12 @@ function ExportPanel({
   records,
   completedAt,
   onExport,
+  locale,
 }: {
   records: CollectionRecord[];
   completedAt: string | null | undefined;
   onExport: () => void;
+  locale: AppLocale;
 }) {
   const accountCount = new Set(
     records.map((record) => `${record.platform}:${record.accountHandle}`),
@@ -414,24 +449,24 @@ function ExportPanel({
         <FileDown size={28} />
       </div>
       <div>
-        <h2 id="csv-export-title">AI 분석용 통합 CSV</h2>
-        <p>대시보드와 동일한 최신 로컬 레코드를 UTF-8 BOM CSV로 저장합니다.</p>
+        <h2 id="csv-export-title">{t(locale, "aiCsv")}</h2>
+        <p>{t(locale, "aiCsvBody")}</p>
         <dl className="export-facts">
           <div>
-            <dt>행</dt>
+            <dt>{t(locale, "rows")}</dt>
             <dd>{records.length}</dd>
           </div>
           <div>
-            <dt>열</dt>
+            <dt>{t(locale, "columns")}</dt>
             <dd>29</dd>
           </div>
           <div>
-            <dt>계정</dt>
+            <dt>{t(locale, "accounts")}</dt>
             <dd>{accountCount}</dd>
           </div>
           <div>
-            <dt>수집 완료</dt>
-            <dd>{formatDate(completedAt)}</dd>
+            <dt>{t(locale, "collectionCompleted")}</dt>
+            <dd>{formatDate(locale, completedAt)}</dd>
           </div>
         </dl>
       </div>
@@ -442,7 +477,7 @@ function ExportPanel({
         disabled={!records.length}
       >
         <FileDown size={16} />
-        CSV 다운로드
+        {t(locale, "csvDownload")}
       </button>
     </section>
   );
@@ -450,12 +485,16 @@ function ExportPanel({
 
 function SettingsPanel({
   enabledPlatforms,
+  locale,
   disabled,
   onToggle,
+  onLocale,
 }: {
   enabledPlatforms: BrowserPlatform[];
+  locale: AppLocale;
   disabled: boolean;
   onToggle: (platform: BrowserPlatform) => void;
+  onLocale: (locale: AppLocale) => void;
 }) {
   return (
     <section
@@ -464,9 +503,34 @@ function SettingsPanel({
     >
       <div className="dashboard-section-heading">
         <div>
-          <h2 id="collection-settings-title">수집 설정</h2>
-          <span>사이드패널과 동일한 설정이 즉시 저장됩니다.</span>
+          <h2 id="collection-settings-title">{t(locale, "collectionSettings")}</h2>
+          <span>{t(locale, "sharedSettings")}</span>
         </div>
+      </div>
+      <div className="dashboard-language-setting">
+        <div>
+          <strong>{t(locale, "language")}</strong>
+          <span>{t(locale, "languageDescription")}</span>
+        </div>
+        <fieldset className="dashboard-segmented">
+          <legend className="sr-only">{t(locale, "language")}</legend>
+          <button
+            type="button"
+            aria-pressed={locale === "ko"}
+            disabled={disabled}
+            onClick={() => onLocale("ko")}
+          >
+            {t(locale, "korean")}
+          </button>
+          <button
+            type="button"
+            aria-pressed={locale === "en"}
+            disabled={disabled}
+            onClick={() => onLocale("en")}
+          >
+            English
+          </button>
+        </fieldset>
       </div>
       <div className="dashboard-platform-settings">
         {browserPlatforms.map((platform) => {
@@ -483,7 +547,7 @@ function SettingsPanel({
               </span>
               <span>
                 <strong>{metadata.label}</strong>
-                <small>{metadata.detail}</small>
+                <small>{locale === "en" ? metadata.detailEn : metadata.detail}</small>
               </span>
               <input
                 type="checkbox"
@@ -514,7 +578,9 @@ export function CollectionDashboard() {
     refresh,
     exportCsv,
     togglePlatform,
+    setLocale,
   } = useBrowserCollection();
+  const locale = preferences.locale;
   const records = snapshot.records;
   const run = snapshot.run;
   const content = records.filter((record) => record.recordType === "content");
@@ -525,7 +591,7 @@ export function CollectionDashboard() {
   const totalViews = sumMetric(content, "views");
   const totalLikes = sumMetric(content, "likes");
   const totalComments = sumMetric(content, "comments");
-  const activeLabel = dashboardViews.find((view) => view.id === activeView)?.label ?? "개요";
+  const activeLabel = dashboardViewLabel(locale, activeView);
   const accountLabel = records[0]?.accountHandle ?? "Local workspace";
   const openPanel = () => void openCollectionPanel();
 
@@ -541,7 +607,7 @@ export function CollectionDashboard() {
             <span>{accountLabel}</span>
           </div>
         </div>
-        <nav aria-label="수집 데이터 대시보드">
+        <nav aria-label={t(locale, "collectionDashboard")}>
           {dashboardViews.map((view) => {
             const Icon = view.icon;
             return (
@@ -552,14 +618,14 @@ export function CollectionDashboard() {
                 key={view.id}
               >
                 <Icon size={17} />
-                {view.label}
+                {dashboardViewLabel(locale, view.id)}
               </button>
             );
           })}
         </nav>
         <div className="collection-sidebar-footer">
           <span className={`status-dot ${running ? "checking" : "online"}`} />
-          {running ? "수집 진행 중" : "로컬 데이터"}
+          {running ? t(locale, "collectionInProgress") : t(locale, "localData")}
         </div>
       </aside>
 
@@ -573,7 +639,7 @@ export function CollectionDashboard() {
             <button
               className="icon-button"
               type="button"
-              title="데이터 새로고침"
+              title={t(locale, "refreshData")}
               onClick={() => void refresh()}
               disabled={loading}
             >
@@ -586,35 +652,42 @@ export function CollectionDashboard() {
               disabled={!records.length || running}
             >
               <FileDown size={16} />
-              CSV 저장
+              {t(locale, "saveCsv")}
             </button>
             <button className="primary-button" type="button" onClick={openPanel}>
-              <PanelRightOpen size={16} />새 데이터 수집
+              <PanelRightOpen size={16} />
+              {t(locale, "newCollection")}
             </button>
           </div>
         </header>
 
-        {error ? <div className="collection-dashboard-notice">{error}</div> : null}
+        {error ? (
+          <div className="collection-dashboard-notice">{localizeError(locale, error)}</div>
+        ) : null}
 
-        <section className="collection-status-band" aria-label="수집 데이터 상태">
-          <span>{runStateLabel(run?.state)}</span>
-          <span>마지막 수집 {formatDate(run?.completedAt ?? run?.createdAt)}</span>
-          <span>{records.length}개 CSV 행</span>
-          <span>외부 전송 없음</span>
+        <section className="collection-status-band" aria-label={t(locale, "dataStatus")}>
+          <span>{runStateLabel(locale, run?.state)}</span>
+          <span>
+            {t(locale, "lastCollection", {
+              date: formatDate(locale, run?.completedAt ?? run?.createdAt),
+            })}
+          </span>
+          <span>{t(locale, "csvRowCount", { count: records.length })}</span>
+          <span>{t(locale, "noExternalTransfer")}</span>
         </section>
 
         {activeView !== "settings" ? (
-          <section className="collection-metric-band" aria-label="최신 수집 핵심 지표">
+          <section className="collection-metric-band" aria-label={t(locale, "keyMetrics")}>
             {[
-              ["콘텐츠", content.length],
-              ["조회", totalViews],
-              ["좋아요", totalLikes],
-              ["댓글", totalComments],
+              [t(locale, "content"), content.length],
+              [t(locale, "views"), totalViews],
+              [t(locale, "likes"), totalLikes],
+              [t(locale, "comments"), totalComments],
             ].map(([label, value]) => (
               <div key={label}>
                 <span>{label}</span>
                 <strong>{formatMetric(value as number)}</strong>
-                <small>최신 스냅샷 합계</small>
+                <small>{t(locale, "latestTotal")}</small>
               </div>
             ))}
           </section>
@@ -622,27 +695,32 @@ export function CollectionDashboard() {
 
         <div className="collection-dashboard-workspace">
           {!records.length && activeView !== "settings" ? (
-            <EmptyData onCollect={openPanel} />
+            <EmptyData onCollect={openPanel} locale={locale} />
           ) : null}
           {records.length && activeView === "overview" ? (
-            <OverviewPanel summaries={summaries} content={content} />
+            <OverviewPanel summaries={summaries} content={content} locale={locale} />
           ) : null}
-          {records.length && activeView === "content" ? <ContentPanel content={content} /> : null}
+          {records.length && activeView === "content" ? (
+            <ContentPanel content={content} locale={locale} />
+          ) : null}
           {records.length && activeView === "compare" ? (
-            <ComparisonPanel summaries={summaries} />
+            <ComparisonPanel summaries={summaries} locale={locale} />
           ) : null}
           {activeView === "exports" ? (
             <ExportPanel
               records={records}
               completedAt={run?.completedAt}
               onExport={() => void exportCsv()}
+              locale={locale}
             />
           ) : null}
           {activeView === "settings" ? (
             <SettingsPanel
               enabledPlatforms={preferences.enabledPlatforms}
+              locale={locale}
               disabled={running || preferencesLoading}
               onToggle={togglePlatform}
+              onLocale={setLocale}
             />
           ) : null}
         </div>

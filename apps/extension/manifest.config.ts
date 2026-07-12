@@ -5,7 +5,7 @@ export default defineManifest({
   name: "Creator Data Bridge",
   short_name: "Creator Bridge",
   description:
-    "Collect TikTok, Instagram, and X creator data locally and export AI-ready CSV files.",
+    "Collect YouTube, TikTok, Instagram, and X creator data locally and export AI-ready CSV files.",
   version: "0.2.0",
   minimum_chrome_version: "114",
   action: {

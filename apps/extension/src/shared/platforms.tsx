@@ -5,6 +5,7 @@ export interface PlatformItem {
   id: Platform;
   label: string;
   detail: string;
+  detailEn: string;
   color: string;
   tint: string;
   icon: LucideIcon;
@@ -16,6 +17,7 @@ export const platforms: PlatformItem[] = [
     id: "youtube",
     label: "YouTube",
     detail: "Studio 채널 및 콘텐츠",
+    detailEn: "Studio channel and content",
     color: "#d9162f",
     tint: "#fff0f2",
     icon: Video,
@@ -25,6 +27,7 @@ export const platforms: PlatformItem[] = [
     id: "instagram",
     label: "Instagram",
     detail: "프로필 및 Reel 로컬 수집",
+    detailEn: "Local profile and Reel collection",
     color: "#b12778",
     tint: "#fff0f8",
     icon: Camera,
@@ -34,6 +37,7 @@ export const platforms: PlatformItem[] = [
     id: "tiktok",
     label: "TikTok",
     detail: "Studio 및 프로필 로컬 수집",
+    detailEn: "Local Studio and profile collection",
     color: "#087f8c",
     tint: "#eafafa",
     icon: Music2,
@@ -43,6 +47,7 @@ export const platforms: PlatformItem[] = [
     id: "x",
     label: "X",
     detail: "프로필 게시물 및 참여 지표",
+    detailEn: "Profile posts and engagement metrics",
     color: "#171717",
     tint: "#f2f2f2",
     icon: AtSign,

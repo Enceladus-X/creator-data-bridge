@@ -10,7 +10,18 @@ import {
 } from "../src/collection/normalize";
 import { normalizeCollectionPreferences } from "../src/collection/preferences";
 import { normalizePlatformPayload } from "../src/collection/records";
-import { buildPlatformSummaries, formatMetric } from "../src/dashboard/CollectionDashboard";
+import {
+  buildPlatformSummaries,
+  formatMetric,
+  platformUploadUrl,
+} from "../src/dashboard/CollectionDashboard";
+import {
+  defaultLocaleForLanguage,
+  localizeLogDetail,
+  localizeLogMessage,
+  t,
+} from "../src/shared/i18n";
+import { buildLogClipboardText } from "../src/sidepanel/App";
 
 describe("collection normalization", () => {
   it.each([
@@ -46,15 +57,17 @@ describe("collection preferences", () => {
         itemLimit: 250,
       }),
     ).toEqual({
-      schemaVersion: 3,
+      schemaVersion: 4,
       enabledPlatforms: ["youtube", "tiktok", "instagram"],
+      locale: "ko",
     });
   });
 
   it("enables the newly added YouTube collector for legacy preferences", () => {
     expect(normalizeCollectionPreferences({ enabledPlatforms: [], itemLimit: 999 })).toEqual({
-      schemaVersion: 3,
+      schemaVersion: 4,
       enabledPlatforms: ["youtube"],
+      locale: "ko",
     });
   });
 
@@ -66,9 +79,67 @@ describe("collection preferences", () => {
         itemLimit: 100,
       }),
     ).toEqual({
-      schemaVersion: 3,
+      schemaVersion: 4,
       enabledPlatforms: ["tiktok", "instagram"],
+      locale: "ko",
     });
+  });
+
+  it("preserves the English locale in v4 preferences", () => {
+    expect(
+      normalizeCollectionPreferences({
+        schemaVersion: 4,
+        enabledPlatforms: ["youtube", "x"],
+        locale: "en",
+      }),
+    ).toEqual({
+      schemaVersion: 4,
+      enabledPlatforms: ["youtube", "x"],
+      locale: "en",
+    });
+  });
+});
+
+describe("localization", () => {
+  it("translates interface and dynamic collection log text", () => {
+    expect(t("en", "channelDataCollection")).toBe("Channel data collection");
+    expect(localizeLogMessage("en", "콘텐츠 1,234개를 확인했습니다.")).toBe(
+      "Found 1,234 content items.",
+    );
+    expect(localizeLogDetail("en", "완료 4/4개 플랫폼 · 저장 19행")).toBe(
+      "4/4 platforms completed · 19 rows saved",
+    );
+  });
+
+  it("defaults new installations to the browser language", () => {
+    expect(defaultLocaleForLanguage("ko-KR")).toBe("ko");
+    expect(defaultLocaleForLanguage("en-US")).toBe("en");
+    expect(defaultLocaleForLanguage("fr-FR")).toBe("en");
+  });
+
+  it("builds direct upload or compose URLs for every platform", () => {
+    expect(platformUploadUrl("youtube", "UC123")).toBe("https://www.youtube.com/upload");
+    expect(platformUploadUrl("tiktok")).toBe("https://www.tiktok.com/tiktokstudio/upload");
+    expect(platformUploadUrl("x")).toBe("https://x.com/compose/post");
+    expect(platformUploadUrl("instagram")).toBe("https://www.instagram.com/create/select/");
+  });
+
+  it("formats copied logs in the selected language", () => {
+    expect(
+      buildLogClipboardText(
+        [
+          {
+            id: "log-copy",
+            at: "2026-07-12T02:07:08.055Z",
+            level: "success",
+            platform: "youtube",
+            message: "플랫폼 수집을 완료했습니다.",
+            detail: "저장 5행",
+          },
+        ],
+        "en",
+      ),
+    ).toContain("[YouTube] Platform collection completed. · 5 rows saved");
   });
 });
 
