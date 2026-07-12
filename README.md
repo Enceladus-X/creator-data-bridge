@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml)
 
-유튜브, 인스타그램, 틱톡, X의 내 계정 성과 데이터를 한 번에 동기화하고 AI가 바로 읽을 수 있는 형태로 내보내는 Chrome 확장프로그램입니다.
+유튜브, 인스타그램, 틱톡, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 형태로 내보내고, 검토한 영상을 여러 채널에 게시하는 Chrome 확장프로그램입니다.
 
 현재 저장소에는 Chrome Manifest V3 확장프로그램, Fastify API, 공통 Zod 데이터 계약이 함께 빌드되는 초기 모노레포가 구성되어 있습니다. 첫 실제 커넥터는 YouTube입니다.
 
@@ -47,11 +47,12 @@ packages/
 docs/                     제품, API 가용성, 아키텍처, 로드맵
 ```
 
-확장프로그램은 OAuth 비밀키나 갱신 토큰을 저장하지 않습니다. 장기 토큰과 실제 플랫폼 수집은 별도 API가 담당하며, 확장은 연결·동기화·확인·내보내기의 조작면을 담당합니다.
+확장프로그램은 OAuth 비밀키나 갱신 토큰을 저장하지 않습니다. TikTok, Instagram, X의 공개 성과 수집은 로그인된 Chrome 탭에서 로컬로 수행하고, YouTube 분석과 공식 게시 API는 별도 백엔드가 담당합니다.
 
 ## 제품 원칙
 
-- 공식 API와 OAuth만 사용하고 Studio/대시보드 화면을 스크래핑하지 않습니다.
+- 읽기 전용 로컬 수집은 사용자 동작으로 시작한 플랫폼 탭에서만 수행합니다.
+- 최종 게시에는 화면 자동 클릭이 아니라 공식 API와 OAuth를 사용합니다.
 - 원본 응답과 플랫폼 간 비교용 공통 지표를 분리합니다.
 - `0`, `unsupported`, `unavailable`, `thresholded`를 서로 다른 상태로 취급합니다.
 - AI 전송은 사용자가 검토할 수 있는 내보내기부터 시작합니다.
@@ -60,6 +61,8 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 ## 문서
 
 - [제품 요구사항](docs/PRODUCT_SPEC.md)
+- [확장프로그램 로컬 수집 설계](docs/EXTENSION_COLLECTION_SPEC.md)
+- [교차 플랫폼 자동 업로드 설계](docs/AUTOMATED_PUBLISHING_SPEC.md)
 - [플랫폼 API 가용성](docs/PLATFORM_CAPABILITIES.md)
 - [기술 아키텍처](docs/ARCHITECTURE.md)
 - [AI 내보내기 계약](docs/AI_EXPORT_CONTRACT.md)
@@ -70,4 +73,4 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 
 ## 현재 범위
 
-YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. Google Cloud 자격증명을 설정하면 본인 채널의 실제 데이터를 수집할 수 있습니다. 설정 화면은 YouTube, Instagram, TikTok, X의 계정 조건, 권한, 심사, callback과 환경변수를 플랫폼별 단계로 안내합니다. Instagram, TikTok, X connector와 PostgreSQL 저장소는 다음 단계입니다. 게시·댓글·DM 관리와 비공식 스크래핑은 MVP 범위에 포함하지 않습니다.
+YouTube OAuth, 암호화 token 저장, Data API와 Analytics API 동기화가 구현되어 있습니다. loorbit 실계정으로 TikTok Studio, Instagram Reel, X 프로필의 DOM 수집 가능성과 통합 CSV를 검증했습니다. 다음 단계는 로컬 수집 오케스트레이터와 TikTok 수직 슬라이스이며, 이후 공식 API 기반 교차 플랫폼 게시를 추가합니다. 댓글 작성과 DM 관리는 MVP 범위에 포함하지 않습니다.
