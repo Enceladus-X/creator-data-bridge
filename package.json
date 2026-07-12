@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Cross-platform creator analytics Chrome extension with AI-ready exports",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=22.12.0",
     "pnpm": ">=10.0.0"

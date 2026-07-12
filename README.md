@@ -1,6 +1,7 @@
 # Creator Data Bridge
 
 [![CI](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 유튜브, 인스타그램, 틱톡, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 형태로 내보내고, 검토한 영상을 여러 채널에 게시하는 Chrome 확장프로그램입니다.
 
@@ -70,6 +71,7 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 - [구현 로드맵](docs/ROADMAP.md)
 - [YouTube 연결 설정](docs/YOUTUBE_SETUP.md)
 - [기여 가이드](CONTRIBUTING.md)
+- [커뮤니티 행동강령](CODE_OF_CONDUCT.md)
 - [보안 정책](SECURITY.md)
 
 ## 현재 범위
