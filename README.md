@@ -62,6 +62,7 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 
 - [제품 요구사항](docs/PRODUCT_SPEC.md)
 - [확장프로그램 로컬 수집 설계](docs/EXTENSION_COLLECTION_SPEC.md)
+- [CSV 추출 확장프로그램 MVP 실행 계획](docs/CSV_EXTENSION_MVP_PLAN.md)
 - [교차 플랫폼 자동 업로드 설계](docs/AUTOMATED_PUBLISHING_SPEC.md)
 - [플랫폼 API 가용성](docs/PLATFORM_CAPABILITIES.md)
 - [기술 아키텍처](docs/ARCHITECTURE.md)

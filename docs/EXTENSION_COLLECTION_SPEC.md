@@ -193,10 +193,10 @@ interface ManagedTab {
 
 - `sidePanel`: 주 UI
 - `storage`: 설정과 실행 체크포인트
-- `downloads`: CSV 저장
 - `scripting`: 사용자 동작으로 시작한 페이지 수집기 주입
-- `tabs`: 필요한 탭 찾기, 임시 탭 생성과 정리
 - `alarms`: 중단된 실행과 타임아웃 감시
+
+탭 생성·정리에는 `chrome.tabs` API를 사용하지만 manifest의 `tabs` 권한은 요청하지 않는다. 선택적으로 허용된 플랫폼 host permission으로 일치 탭 URL을 확인한다. CSV는 사이드 패널에서 Blob URL과 `<a download>`로 저장하므로 `downloads` 권한도 요청하지 않는다.
 
 ### 선택적 호스트 권한
 
@@ -472,3 +472,5 @@ MVP 예상은 집중 개발 9~14일이다. 첫 구현은 TikTok 하나를 수집
 - 플랫폼 selector fixture 갱신 절차를 `skills/social-browser-collector/` 워크플로우로 분리
 
 자동 업로드는 DOM 수집과 다른 보안·API 경계를 사용한다. 게시 기능의 사용자 흐름, 미디어 저장소, 플랫폼 심사와 안전 기준은 [교차 플랫폼 자동 업로드 설계](AUTOMATED_PUBLISHING_SPEC.md)를 따른다.
+
+CSV MVP의 화면, 메시지, IndexedDB, PR 순서와 출시 게이트는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 구현 기준으로 사용한다.

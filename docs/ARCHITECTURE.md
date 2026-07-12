@@ -92,13 +92,16 @@ MV3 서비스 워커는 필요할 때 시작되고 중단될 수 있다. 로컬 
 
 ### 권한 원칙
 
-- `tabs`, `scripting`, `alarms`는 로컬 수집에 사용한다.
+- `scripting`, `alarms`와 플랫폼별 선택적 host permission을 로컬 수집에 사용한다.
+- 탭 생성·정리는 `chrome.tabs` API로 수행하되 manifest의 `tabs` 권한은 요청하지 않는다.
 - `cookies`, `webRequest`, 광범위한 `<all_urls>`는 요청하지 않는다.
 - TikTok, Instagram, X host permission은 플랫폼 활성화 시 선택적으로 요청한다.
 - OAuth는 사용자 버튼 클릭 후에만 대화형 창을 연다.
 - CSP를 엄격하게 유지하고 원격 코드를 실행하지 않는다.
 
 로컬 수집의 탭 정책, 수집기 계약과 selector 테스트는 [확장프로그램 로컬 수집 설계](EXTENSION_COLLECTION_SPEC.md)를 따른다. 게시 작업과 임시 미디어의 경계는 [교차 플랫폼 자동 업로드 설계](AUTOMATED_PUBLISHING_SPEC.md)를 따른다.
+
+CSV 수집 MVP의 구현 단위와 출시 게이트는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 따른다.
 
 ## 5. 백엔드 경계
 

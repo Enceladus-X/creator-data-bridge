@@ -28,6 +28,8 @@
 
 다음 구현은 **TikTok 수집 시작 → 정규화 → IndexedDB → CSV**를 한 번 완주하는 수직 슬라이스다.
 
+CSV MVP의 화면 흐름, 메시지 계약, IndexedDB schema, 플랫폼 알고리즘과 PR 단위는 [CSV 추출 확장프로그램 MVP 실행 계획](CSV_EXTENSION_MVP_PLAN.md)을 따른다.
+
 ## Phase 1: 브라우저 수집 기반
 
 예상: 2~3일
