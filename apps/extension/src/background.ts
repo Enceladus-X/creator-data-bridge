@@ -1,5 +1,10 @@
 import type { BrowserPlatform } from "@creator-data-bridge/contracts";
 import {
+  ensureExternalControlAlarm,
+  externalControlAlarmName,
+  pollExternalControl,
+} from "./collection/external-control";
+import {
   cancelCollection,
   clearCollectionData,
   exportCollectionCsv,
@@ -12,11 +17,21 @@ import type { CollectionMessage } from "./collection/types";
 
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  ensureExternalControlAlarm();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void recoverInterruptedCollection();
+  ensureExternalControlAlarm();
+  void pollExternalControl();
 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === externalControlAlarmName) void pollExternalControl();
+});
+
+ensureExternalControlAlarm();
+void pollExternalControl();
 
 async function handleMessage(message: CollectionMessage) {
   if (message.type === "OPEN_DASHBOARD") {

@@ -19,7 +19,11 @@ export default defineManifest({
     default_path: "sidepanel.html",
   },
   permissions: ["alarms", "clipboardWrite", "identity", "scripting", "sidePanel", "storage"],
-  host_permissions: ["http://127.0.0.1:8787/*", "http://localhost:8787/*"],
+  host_permissions: [
+    "http://127.0.0.1:8787/*",
+    "http://localhost:8787/*",
+    "http://127.0.0.1:48765/*",
+  ],
   optional_host_permissions: [
     "https://studio.youtube.com/*",
     "https://www.tiktok.com/*",
