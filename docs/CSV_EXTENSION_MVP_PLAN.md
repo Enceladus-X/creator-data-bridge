@@ -25,10 +25,10 @@
 - 최근 수집 실행 로컬 보존과 전체 삭제
 - `0`과 미제공·로딩 실패 구분
 
-### 조건부 포함
+### 포함
 
-- YouTube API가 이미 연결돼 있으면 현재 snapshot을 같은 CSV에 병합한다.
-- YouTube가 미설정이거나 API가 오프라인이어도 세 브라우저 플랫폼의 CSV 생성을 막지 않는다.
+- YouTube Studio 대시보드와 콘텐츠/Shorts 표를 로그인된 Chrome 세션에서 로컬 수집한다.
+- 공식 YouTube API가 미설정이거나 API 서버가 오프라인이어도 네 플랫폼 CSV 수집에는 영향을 주지 않는다.
 
 ### 제외
 
@@ -48,7 +48,7 @@
 다음 시나리오가 한 번에 통과하면 CSV MVP가 완료된 것으로 본다.
 
 1. 사용자가 loorbit Chrome 프로필에서 확장 아이콘을 누른다.
-2. 사이드 패널에 TikTok, Instagram, X의 권한과 로그인 상태가 표시된다.
+2. 사이드 패널에 YouTube, TikTok, Instagram, X의 권한과 로그인 상태가 표시된다.
 3. 사용자가 설정에서 수집 플랫폼을 고르고 `수집하고 CSV 다운로드`를 누른다.
 4. 필요한 임시 탭이 비활성으로 열리고 플랫폼이 순차 수집된다.
 5. 결과 화면에 플랫폼별 계정 1행과 현재 콘텐츠 행이 표시된다.
@@ -86,7 +86,7 @@ X           권한 필요   [허용]
 TikTok      @loorbit0       준비됨
 Instagram   @loorbit0       준비됨
 X           @Loorbit0       준비됨
-YouTube     API 미설정      제외됨
+YouTube     Studio 권한     준비됨
 
 범위        최신 100개
                   [전체 채널 수집]

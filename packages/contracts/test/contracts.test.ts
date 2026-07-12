@@ -111,7 +111,7 @@ describe("browser collection contracts", () => {
   });
 
   it("validates a partially completed collection run", () => {
-    const checkpoint = (platform: "tiktok" | "instagram" | "x") => ({
+    const checkpoint = (platform: "youtube" | "tiktok" | "instagram" | "x") => ({
       platform,
       state: platform === "instagram" ? "failed" : "completed",
       accountHandle: platform === "x" ? "@Loorbit0" : "@loorbit0",
@@ -131,6 +131,7 @@ describe("browser collection contracts", () => {
       createdAt: "2026-07-12T02:00:00.000Z",
       completedAt: "2026-07-12T02:07:08.055Z",
       platforms: {
+        youtube: checkpoint("youtube"),
         tiktok: checkpoint("tiktok"),
         instagram: checkpoint("instagram"),
         x: checkpoint("x"),

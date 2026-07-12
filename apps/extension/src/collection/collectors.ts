@@ -1,5 +1,138 @@
 import type { RawContentItem, RawPlatformPayload, RawProfile } from "./types";
 
+export function collectYouTubeStudioDashboardPage(): RawPlatformPayload {
+  const channelLink = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('a[href^="/channel/"]'),
+  )
+    .map((anchor) => anchor.getAttribute("href") ?? "")
+    .find((href) => /^\/channel\/UC[A-Za-z0-9_-]+$/.test(href));
+  const channelId = channelLink?.match(/^\/channel\/(UC[A-Za-z0-9_-]+)$/)?.[1] ?? "";
+  const accountName = (
+    document.querySelector<HTMLElement>("#entity-name")?.textContent ?? ""
+  ).trim();
+  const analyticsCard = document.querySelector<HTMLElement>("ytcd-channel-facts-item");
+  const subscribersText = (
+    analyticsCard?.querySelector<HTMLElement>(".metric-value-big")?.textContent ?? ""
+  ).trim();
+  const channelViewsText = (
+    analyticsCard?.querySelector<HTMLElement>("#metric-0-value")?.textContent ?? ""
+  ).trim();
+  const watchHoursText = (
+    analyticsCard?.querySelector<HTMLElement>("#metric-1-value")?.textContent ?? ""
+  ).trim();
+  const ready = Boolean(channelId && accountName);
+
+  return {
+    ok: ready,
+    platform: "youtube",
+    profile: ready
+      ? {
+          accountName,
+          accountHandle: channelId,
+          followersText: subscribersText || null,
+          followingText: null,
+          totalPostsText: null,
+          totalLikesText: null,
+          channelViewsText: channelViewsText || null,
+          watchHoursText: watchHoursText || null,
+          notes: ["analytics_period=last_28_days"],
+        }
+      : null,
+    items: [],
+    warningCodes: [],
+    errorCode: ready ? null : "LOGIN_OR_CHANNEL_REQUIRED",
+    errorMessage: ready ? null : "YouTube Studio 채널 정보를 찾지 못했습니다.",
+  };
+}
+
+export function collectYouTubeStudioContentPage(
+  expectedChannelId: string,
+  contentType: "video" | "short",
+): RawPlatformPayload {
+  const currentChannelId = location.pathname.match(/^\/channel\/(UC[A-Za-z0-9_-]+)/)?.[1] ?? "";
+  const tableReady = Boolean(
+    document.querySelector(
+      'table[aria-label], ytcp-video-section, ytcp-video-list, [role="table"]',
+    ),
+  );
+  const rowNodes = Array.from(
+    document.querySelectorAll<HTMLElement>('ytcp-video-row, [role="row"]'),
+  );
+  const items: RawContentItem[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rowNodes) {
+    const editLink = Array.from(row.querySelectorAll<HTMLAnchorElement>('a[href*="/video/"]')).find(
+      (anchor) => /\/video\/[^/?#]+(?:\/edit)?/.test(anchor.getAttribute("href") ?? ""),
+    );
+    const id = editLink?.getAttribute("href")?.match(/\/video\/([^/?#]+)/)?.[1];
+    if (!id || seen.has(id)) continue;
+    const titleElement =
+      row.querySelector<HTMLElement>("#video-title") ??
+      editLink ??
+      row.querySelector<HTMLElement>('[aria-label*="동영상"]');
+    const text = (selector: string) =>
+      (row.querySelector<HTMLElement>(selector)?.textContent ?? "").trim() || null;
+    const visibility = text("#visibility, #visibility-text");
+
+    items.push({
+      contentId: id,
+      contentUrl:
+        contentType === "short"
+          ? `https://www.youtube.com/shorts/${id}`
+          : `https://www.youtube.com/watch?v=${id}`,
+      contentType,
+      title: (titleElement?.getAttribute("title") ?? titleElement?.textContent ?? "").trim(),
+      publishedDisplay: text("#date-text, .date"),
+      publishedAt: null,
+      durationDisplay: text("#duration, .video-duration"),
+      durationSeconds: null,
+      viewsText: text("#views"),
+      likesText: null,
+      commentsText: text("#comments"),
+      sharesText: null,
+      savesText: null,
+      notes: visibility ? [`visibility=${visibility}`] : [],
+    });
+    seen.add(id);
+  }
+
+  const accountMatches = currentChannelId === expectedChannelId;
+  return {
+    ok: accountMatches && tableReady,
+    platform: "youtube",
+    profile: null,
+    items,
+    warningCodes: [],
+    errorCode: accountMatches ? (tableReady ? null : "SURFACE_NOT_READY") : "ACCOUNT_MISMATCH",
+    errorMessage: accountMatches
+      ? tableReady
+        ? null
+        : "YouTube Studio 콘텐츠 표가 준비되지 않았습니다."
+      : "YouTube Studio 채널이 일치하지 않습니다.",
+  };
+}
+
+export function scrollYouTubeStudioContentPage(): { before: number; after: number } {
+  const firstRow = document.querySelector<HTMLElement>("ytcp-video-row, [role='row']");
+  let candidate = firstRow?.parentElement ?? null;
+  while (candidate) {
+    if (candidate.scrollHeight > candidate.clientHeight + 40) {
+      const before = candidate.scrollTop;
+      candidate.scrollBy({
+        top: Math.max(candidate.clientHeight * 0.85, 600),
+        behavior: "instant",
+      });
+      return { before, after: candidate.scrollTop };
+    }
+    candidate = candidate.parentElement;
+  }
+  const scrollingElement = document.scrollingElement;
+  const before = scrollingElement?.scrollTop ?? window.scrollY;
+  window.scrollBy({ top: Math.max(window.innerHeight * 0.85, 700), behavior: "instant" });
+  return { before, after: document.scrollingElement?.scrollTop ?? window.scrollY };
+}
+
 export function collectTikTokStudioPage(): RawPlatformPayload {
   const items: RawContentItem[] = [];
   const seen = new Set<string>();

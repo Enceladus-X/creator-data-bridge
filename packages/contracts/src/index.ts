@@ -182,7 +182,7 @@ export const youtubeDashboardResponseSchema = z.object({
 });
 export type YouTubeDashboardResponse = z.infer<typeof youtubeDashboardResponseSchema>;
 
-export const browserPlatformSchema = z.enum(["tiktok", "instagram", "x"]);
+export const browserPlatformSchema = z.enum(["youtube", "tiktok", "instagram", "x"]);
 export type BrowserPlatform = z.infer<typeof browserPlatformSchema>;
 
 export const collectionRecordTypeSchema = z.enum(["channel_summary", "content"]);

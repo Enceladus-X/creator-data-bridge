@@ -7,6 +7,7 @@ import {
   parseDuration,
   parseInstagramDate,
   parseKoreanStudioDate,
+  parseYouTubeStudioDate,
   sanitizeContentUrl,
 } from "./normalize";
 import type { RawPlatformPayload } from "./types";
@@ -25,7 +26,10 @@ function commonRecord(
     snapshotAt,
     platform: payload.platform,
     accountName: profile.accountName,
-    accountHandle: normalizeHandle(profile.accountHandle),
+    accountHandle:
+      payload.platform === "youtube"
+        ? profile.accountHandle
+        : normalizeHandle(profile.accountHandle),
     sourceSurface: `${payload.platform}_profile_web`,
     selectorVersion,
   };
@@ -41,23 +45,26 @@ export function normalizePlatformPayload(
   if (!profile) return [];
   const common = commonRecord(runId, snapshotAt, payload, selectorVersion);
   const profileLikes = parseCompactCount(profile.totalLikesText);
+  const profileViews = parseCompactCount(profile.channelViewsText);
   const records: CollectionRecord[] = [
     collectionRecordSchema.parse({
       ...common,
       recordType: "channel_summary",
       contentId: "",
       contentUrl:
-        payload.platform === "instagram"
-          ? `https://www.instagram.com/${profile.accountHandle.replace(/^@/, "")}/`
-          : payload.platform === "tiktok"
-            ? `https://www.tiktok.com/@${profile.accountHandle.replace(/^@/, "")}`
-            : `https://x.com/${profile.accountHandle.replace(/^@/, "")}`,
+        payload.platform === "youtube"
+          ? `https://www.youtube.com/channel/${profile.accountHandle}`
+          : payload.platform === "instagram"
+            ? `https://www.instagram.com/${profile.accountHandle.replace(/^@/, "")}/`
+            : payload.platform === "tiktok"
+              ? `https://www.tiktok.com/@${profile.accountHandle.replace(/^@/, "")}`
+              : `https://x.com/${profile.accountHandle.replace(/^@/, "")}`,
       contentType: "profile",
       title: profile.accountName,
       publishedAt: null,
       durationSeconds: null,
-      views: null,
-      viewsCoverage: "unavailable",
+      views: profileViews,
+      viewsCoverage: metricCoverage(profileViews, "unavailable"),
       likes: profileLikes,
       likesCoverage: metricCoverage(profileLikes, "unavailable"),
       comments: null,
@@ -69,7 +76,12 @@ export function normalizePlatformPayload(
       followers: parseCompactCount(profile.followersText),
       following: parseCompactCount(profile.followingText),
       totalPosts: parseCompactCount(profile.totalPostsText) ?? payload.items.length,
-      notes: profile.notes.join("; "),
+      notes: [
+        ...profile.notes,
+        profile.watchHoursText ? `watch_hours_28d=${profile.watchHoursText}` : "",
+      ]
+        .filter(Boolean)
+        .join("; "),
     }),
   ];
 
@@ -83,20 +95,25 @@ export function normalizePlatformPayload(
       item.publishedAt ??
       (payload.platform === "instagram"
         ? parseInstagramDate(item.publishedDisplay)
-        : payload.platform === "tiktok"
-          ? parseKoreanStudioDate(item.publishedDisplay, new Date(snapshotAt))
-          : null);
+        : payload.platform === "youtube"
+          ? parseYouTubeStudioDate(item.publishedDisplay)
+          : payload.platform === "tiktok"
+            ? parseKoreanStudioDate(item.publishedDisplay, new Date(snapshotAt))
+            : null);
     const unavailable = payload.platform === "instagram" ? "unavailable" : "partial";
+    const likesUnavailable = payload.platform === "youtube" ? "unavailable" : unavailable;
 
     records.push(
       collectionRecordSchema.parse({
         ...common,
         sourceSurface:
-          payload.platform === "tiktok"
-            ? "tiktok_studio_content"
-            : payload.platform === "instagram"
-              ? "instagram_reel_web"
-              : "x_profile_web",
+          payload.platform === "youtube"
+            ? "youtube_studio_content"
+            : payload.platform === "tiktok"
+              ? "tiktok_studio_content"
+              : payload.platform === "instagram"
+                ? "instagram_reel_web"
+                : "x_profile_web",
         recordType: "content",
         contentId: item.contentId,
         contentUrl: sanitizeContentUrl(item.contentUrl),
@@ -107,7 +124,7 @@ export function normalizePlatformPayload(
         views,
         viewsCoverage: metricCoverage(views, unavailable),
         likes,
-        likesCoverage: metricCoverage(likes, unavailable),
+        likesCoverage: metricCoverage(likes, likesUnavailable),
         comments,
         commentsCoverage: metricCoverage(comments, unavailable),
         shares,

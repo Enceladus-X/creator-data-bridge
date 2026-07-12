@@ -1,4 +1,6 @@
-# YouTube 연결 설정
+# YouTube 공식 API 연결 설정 (선택 사항)
+
+기본 CSV 수집은 로그인된 `studio.youtube.com` 화면을 로컬에서 읽으므로 Google Cloud나 OAuth 설정이 필요하지 않다. 아래 설정은 공식 YouTube Data/Analytics API의 더 상세한 기간 분석을 별도로 사용할 때만 필요하다.
 
 Creator Data Bridge는 YouTube 비밀번호나 브라우저 쿠키를 사용하지 않는다. Google OAuth 2.0으로 사용자가 승인한 읽기 권한만 받고, refresh token은 로컬 `.data`에 AES-256-GCM으로 암호화해 저장한다.
 

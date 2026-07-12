@@ -9,9 +9,12 @@ import {
   collectTikTokProfilePage,
   collectTikTokStudioPage,
   collectXProfilePage,
+  collectYouTubeStudioContentPage,
+  collectYouTubeStudioDashboardPage,
   detectInstagramHandle,
   detectXHandle,
   scrollCollectionPage,
+  scrollYouTubeStudioContentPage,
 } from "./collectors";
 import { buildCollectionCsv, buildCollectionFileName } from "./csv";
 import {
@@ -41,8 +44,9 @@ import {
 
 const currentRunStorageKey = "collection.currentRun";
 const handlesStorageKey = "collection.handles";
-const defaultPlatforms: BrowserPlatform[] = ["tiktok", "x", "instagram"];
+const defaultPlatforms: BrowserPlatform[] = ["youtube", "tiktok", "x", "instagram"];
 const selectorVersions: Record<BrowserPlatform, string> = {
+  youtube: "youtube-studio-v1",
   tiktok: "tiktok-studio-v1",
   instagram: "instagram-meta-v1",
   x: "x-profile-v1",
@@ -85,6 +89,7 @@ function createRun(platforms: BrowserPlatform[], itemLimit: number): CollectionR
     createdAt: new Date().toISOString(),
     completedAt: null,
     platforms: {
+      youtube: createCheckpoint("youtube"),
       tiktok: createCheckpoint("tiktok"),
       instagram: createCheckpoint("instagram"),
       x: createCheckpoint("x"),
@@ -200,6 +205,80 @@ async function retryCollector<T>(
 function mergeItems(target: Map<string, RawContentItem>, items: RawContentItem[], limit: number) {
   for (const item of items) {
     if (!target.has(item.contentId) && target.size < limit) target.set(item.contentId, item);
+  }
+}
+
+async function collectYouTube(run: CollectionRun): Promise<RawPlatformPayload> {
+  const tab = await createCollectionTab("https://studio.youtube.com/");
+  try {
+    await updatePlatform(run, "youtube", { state: "collecting" });
+    const dashboard = await retryCollector(
+      tab,
+      () => executeCollector(tab.tabId, collectYouTubeStudioDashboardPage, []),
+      (value) => value.ok && value.profile !== null,
+    );
+    if (!dashboard.ok || !dashboard.profile) {
+      throw new CollectionFailure(
+        dashboard.errorCode ?? "LOGIN_REQUIRED",
+        dashboard.errorMessage ?? "YouTube Studio 채널 정보를 읽지 못했습니다.",
+      );
+    }
+
+    const channelId = dashboard.profile.accountHandle;
+    await saveHandle("youtube", channelId);
+    await updatePlatform(run, "youtube", { accountHandle: channelId });
+    const items = new Map<string, RawContentItem>();
+    const surfaces = [
+      { path: "short", contentType: "short" as const },
+      { path: "upload", contentType: "video" as const },
+    ];
+
+    for (const surface of surfaces) {
+      if (items.size >= run.itemLimit) break;
+      await navigateCollectionTab(
+        tab.tabId,
+        `https://studio.youtube.com/channel/${channelId}/videos/${surface.path}`,
+      );
+      let stablePasses = 0;
+      for (let pass = 0; pass < 40 && items.size < run.itemLimit && stablePasses < 3; pass += 1) {
+        checkCancelled(run);
+        const payload = await retryCollector(
+          tab,
+          () =>
+            executeCollector(tab.tabId, collectYouTubeStudioContentPage, [
+              channelId,
+              surface.contentType,
+            ]),
+          (value) => value.ok,
+        );
+        if (!payload.ok) {
+          throw new CollectionFailure(
+            payload.errorCode ?? "SURFACE_NOT_READY",
+            payload.errorMessage ?? "YouTube Studio 콘텐츠를 읽지 못했습니다.",
+          );
+        }
+        const before = items.size;
+        mergeItems(items, payload.items, run.itemLimit);
+        stablePasses = items.size === before ? stablePasses + 1 : 0;
+        await updatePlatform(run, "youtube", { discovered: items.size });
+        if (stablePasses >= 3 || items.size >= run.itemLimit) break;
+        await executeCollector(tab.tabId, scrollYouTubeStudioContentPage, []);
+        await collectionDelay(650);
+      }
+    }
+
+    dashboard.profile.totalPostsText = String(items.size);
+    return {
+      ok: true,
+      platform: "youtube",
+      profile: dashboard.profile,
+      items: [...items.values()],
+      warningCodes: items.size >= run.itemLimit ? ["COLLECTION_LIMIT_REACHED"] : [],
+      errorCode: null,
+      errorMessage: null,
+    };
+  } finally {
+    await closeCollectionTab(tab);
   }
 }
 
@@ -423,6 +502,7 @@ async function collectInstagram(run: CollectionRun): Promise<RawPlatformPayload>
 }
 
 async function collectPlatform(run: CollectionRun, platform: BrowserPlatform) {
+  if (platform === "youtube") return collectYouTube(run);
   if (platform === "tiktok") return collectTikTok(run);
   if (platform === "x") return collectX(run);
   return collectInstagram(run);

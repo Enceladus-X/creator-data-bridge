@@ -5,6 +5,8 @@ import {
   collectInstagramReelPage,
   collectTikTokStudioPage,
   collectXProfilePage,
+  collectYouTubeStudioContentPage,
+  collectYouTubeStudioDashboardPage,
 } from "../src/collection/collectors";
 
 function installDom(html: string, url: string) {
@@ -15,6 +17,61 @@ function installDom(html: string, url: string) {
 }
 
 describe("platform DOM collectors", () => {
+  it("reads YouTube Studio channel analytics without OAuth", () => {
+    installDom(
+      `
+        <a href="/channel/UC3et4G7xRpVJuZNEW4mHwhw">Studio</a>
+        <div id="entity-name">Loorbit</div>
+        <ytcd-channel-facts-item>
+          <div class="metric-value-big">5</div>
+          <div id="metric-0-value">1.5천</div>
+          <div id="metric-1-value">4.1</div>
+        </ytcd-channel-facts-item>
+      `,
+      "https://studio.youtube.com/channel/UC3et4G7xRpVJuZNEW4mHwhw",
+    );
+
+    const payload = collectYouTubeStudioDashboardPage();
+    expect(payload.ok).toBe(true);
+    expect(payload.profile).toMatchObject({
+      accountName: "Loorbit",
+      accountHandle: "UC3et4G7xRpVJuZNEW4mHwhw",
+      followersText: "5",
+      channelViewsText: "1.5천",
+      watchHoursText: "4.1",
+    });
+  });
+
+  it("reads YouTube Studio content rows and keeps unavailable likes empty", () => {
+    installDom(
+      `
+        <table aria-label="Shorts 동영상 목록">
+          <ytcp-video-row>
+            <a id="video-title" title="1kg vs 1000kg" href="/video/DrFGgiJC-TU/edit">1kg vs 1000kg</a>
+            <div id="visibility">공개</div>
+            <div id="date-text">2026. 7. 11.</div>
+            <div id="views">1.2천</div>
+            <div id="comments">0</div>
+            <div id="duration">0:22</div>
+          </ytcp-video-row>
+        </table>
+      `,
+      "https://studio.youtube.com/channel/UC3et4G7xRpVJuZNEW4mHwhw/videos/short",
+    );
+
+    const payload = collectYouTubeStudioContentPage("UC3et4G7xRpVJuZNEW4mHwhw", "short");
+    expect(payload.ok).toBe(true);
+    expect(payload.items[0]).toMatchObject({
+      contentId: "DrFGgiJC-TU",
+      contentType: "short",
+      title: "1kg vs 1000kg",
+      viewsText: "1.2천",
+      likesText: null,
+      commentsText: "0",
+      publishedDisplay: "2026. 7. 11.",
+    });
+  });
+
   it("reads TikTok Studio rows without confusing zero metrics with missing values", () => {
     installDom(
       `

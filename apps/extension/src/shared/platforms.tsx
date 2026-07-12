@@ -15,7 +15,7 @@ export const platforms: PlatformItem[] = [
   {
     id: "youtube",
     label: "YouTube",
-    detail: "채널 및 Analytics",
+    detail: "Studio 채널 및 콘텐츠",
     color: "#d9162f",
     tint: "#fff0f2",
     icon: Video,

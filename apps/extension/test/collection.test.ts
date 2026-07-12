@@ -6,8 +6,10 @@ import {
   parseCompactCount,
   parseDuration,
   parseInstagramDate,
+  parseYouTubeStudioDate,
 } from "../src/collection/normalize";
 import { normalizeCollectionPreferences } from "../src/collection/preferences";
+import { normalizePlatformPayload } from "../src/collection/records";
 import { buildPlatformSummaries } from "../src/dashboard/CollectionDashboard";
 
 describe("collection normalization", () => {
@@ -30,6 +32,10 @@ describe("collection normalization", () => {
   it("parses Instagram's English metadata date", () => {
     expect(parseInstagramDate("July 11, 2026")).toBe("2026-07-11");
   });
+
+  it("parses YouTube Studio's localized date", () => {
+    expect(parseYouTubeStudioDate("2026. 7. 11. 게시됨")).toBe("2026-07-11");
+  });
 });
 
 describe("collection preferences", () => {
@@ -39,12 +45,31 @@ describe("collection preferences", () => {
         enabledPlatforms: ["instagram", "unsupported", "tiktok"],
         itemLimit: 250,
       }),
-    ).toEqual({ enabledPlatforms: ["tiktok", "instagram"], itemLimit: 250 });
+    ).toEqual({
+      schemaVersion: 2,
+      enabledPlatforms: ["youtube", "tiktok", "instagram"],
+      itemLimit: 250,
+    });
   });
 
-  it("allows all platforms to be disabled and repairs an invalid limit", () => {
+  it("enables the newly added YouTube collector and repairs an invalid limit", () => {
     expect(normalizeCollectionPreferences({ enabledPlatforms: [], itemLimit: 999 })).toEqual({
-      enabledPlatforms: [],
+      schemaVersion: 2,
+      enabledPlatforms: ["youtube"],
+      itemLimit: 100,
+    });
+  });
+
+  it("keeps YouTube disabled after the v2 preference is saved", () => {
+    expect(
+      normalizeCollectionPreferences({
+        schemaVersion: 2,
+        enabledPlatforms: ["tiktok", "instagram"],
+        itemLimit: 100,
+      }),
+    ).toEqual({
+      schemaVersion: 2,
+      enabledPlatforms: ["tiktok", "instagram"],
       itemLimit: 100,
     });
   });
@@ -90,6 +115,70 @@ describe("collection CSV", () => {
     expect(csv).toContain('"comments","comments_coverage"');
     expect(csv).toContain('"","unavailable","6","complete","0","complete"');
     expect(csv).toContain('"cloth, ""finally"" real"');
+  });
+});
+
+describe("YouTube Studio normalization", () => {
+  it("keeps Studio likes unavailable while preserving views and explicit zero comments", () => {
+    const records = normalizePlatformPayload(
+      "run-youtube",
+      {
+        ok: true,
+        platform: "youtube",
+        profile: {
+          accountName: "Loorbit",
+          accountHandle: "UC3et4G7xRpVJuZNEW4mHwhw",
+          followersText: "5",
+          followingText: null,
+          totalPostsText: "1",
+          totalLikesText: null,
+          channelViewsText: "1.5천",
+          watchHoursText: "4.1",
+          notes: ["analytics_period=last_28_days"],
+        },
+        items: [
+          {
+            contentId: "DrFGgiJC-TU",
+            contentUrl: "https://www.youtube.com/shorts/DrFGgiJC-TU",
+            contentType: "short",
+            title: "1kg vs 1000kg",
+            publishedDisplay: "2026. 7. 11.",
+            publishedAt: null,
+            durationDisplay: "0:22",
+            durationSeconds: null,
+            viewsText: "1.2천",
+            likesText: null,
+            commentsText: "0",
+            sharesText: null,
+            savesText: null,
+            notes: ["visibility=공개"],
+          },
+        ],
+        warningCodes: [],
+        errorCode: null,
+        errorMessage: null,
+      },
+      "youtube-studio-v1",
+      "2026-07-12T02:07:08.055Z",
+    );
+
+    expect(records[0]).toMatchObject({
+      recordType: "channel_summary",
+      accountHandle: "UC3et4G7xRpVJuZNEW4mHwhw",
+      followers: 5,
+      views: 1500,
+      viewsCoverage: "complete",
+    });
+    expect(records[0]?.notes).toContain("watch_hours_28d=4.1");
+    expect(records[1]).toMatchObject({
+      publishedAt: "2026-07-11",
+      views: 1200,
+      viewsCoverage: "complete",
+      likes: null,
+      likesCoverage: "unavailable",
+      comments: 0,
+      commentsCoverage: "complete",
+    });
   });
 });
 

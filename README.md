@@ -3,13 +3,13 @@
 [![CI](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Enceladus-X/creator-data-bridge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-TikTok, Instagram, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 CSV로 저장하는 로컬 우선 Chrome 확장프로그램입니다.
+YouTube, TikTok, Instagram, X의 내 계정 성과 데이터를 한 번에 수집해 AI가 읽을 수 있는 CSV로 저장하는 로컬 우선 Chrome 확장프로그램입니다.
 
 현재 `0.2.0` 확장프로그램은 로그인된 Chrome 세션을 이용해 플랫폼 탭을 직접 열고, 공개 프로필·콘텐츠 지표를 읽은 뒤 임시 탭을 정리합니다. 쿠키와 비밀번호는 읽지 않으며 수집 결과는 IndexedDB에 로컬 저장됩니다.
 
 ## 사용 흐름
 
-1. Chrome에서 TikTok, Instagram, X에 로그인합니다.
+1. Chrome에서 YouTube Studio, TikTok, Instagram, X에 로그인합니다.
 2. 확장프로그램 사이드 패널의 `수집 설정`에서 사용할 플랫폼을 켭니다.
 3. 플랫폼별 최대 콘텐츠 수를 `50`, `100`, `250`, `500` 중 선택합니다.
 4. `수집하고 CSV 다운로드`를 누릅니다.
@@ -61,7 +61,7 @@ packages/
 docs/                     제품, API 가용성, 아키텍처, 로드맵
 ```
 
-브라우저 수집 경로는 OAuth 비밀키, 갱신 토큰, 쿠키를 저장하지 않습니다. TikTok, Instagram, X의 공개 성과 수집은 로그인된 Chrome 세션에서 로컬로 수행하고, 기존 YouTube 분석 API와 향후 공식 게시 API는 별도 백엔드 경로로 분리합니다.
+브라우저 수집 경로는 OAuth 비밀키, 갱신 토큰, 쿠키를 저장하지 않습니다. YouTube Studio, TikTok, Instagram, X의 화면 성과 수집은 로그인된 Chrome 세션에서 로컬로 수행하고, 기존 YouTube 공식 API와 향후 게시 API는 선택적인 별도 백엔드 경로로 분리합니다.
 
 ## 제품 원칙
 
@@ -89,4 +89,4 @@ docs/                     제품, API 가용성, 아키텍처, 로드맵
 
 ## 현재 범위
 
-Chrome MV3 사이드 패널, 선택적 사이트 권한, 플랫폼 토글 설정, 임시 탭 오케스트레이터, TikTok Studio·Instagram Reel·X 프로필 수집기, IndexedDB 저장, 부분 성공, 재시도와 자동 CSV 다운로드가 구현되어 있습니다. 전체 대시보드는 같은 로컬 레코드를 플랫폼·콘텐츠 단위로 시각화하고 CSV 재다운로드를 지원합니다. `0`과 미제공 지표를 구분하며 개인정보를 제거한 DOM fixture와 CSV 계약 테스트를 포함합니다. 댓글 작성, DM 관리와 자동 업로드는 현재 CSV MVP 범위에 포함하지 않습니다.
+Chrome MV3 사이드 패널, 선택적 사이트 권한, 플랫폼 토글 설정, 임시 탭 오케스트레이터, YouTube Studio·TikTok Studio·Instagram Reel·X 프로필 수집기, IndexedDB 저장, 부분 성공, 재시도와 자동 CSV 다운로드가 구현되어 있습니다. 전체 대시보드는 같은 로컬 레코드를 플랫폼·콘텐츠 단위로 시각화하고 CSV 재다운로드를 지원합니다. `0`과 미제공 지표를 구분하며 개인정보를 제거한 DOM fixture와 CSV 계약 테스트를 포함합니다. 댓글 작성, DM 관리와 자동 업로드는 현재 CSV MVP 범위에 포함하지 않습니다.

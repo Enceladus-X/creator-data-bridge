@@ -11,6 +11,8 @@ export interface RawProfile {
   followingText: string | null;
   totalPostsText: string | null;
   totalLikesText: string | null;
+  channelViewsText?: string | null;
+  watchHoursText?: string | null;
   notes: string[];
 }
 
@@ -62,6 +64,7 @@ export interface CsvExportResponse {
 }
 
 export const platformPermissionOrigins: Record<BrowserPlatform, string> = {
+  youtube: "https://studio.youtube.com/*",
   tiktok: "https://www.tiktok.com/*",
   instagram: "https://www.instagram.com/*",
   x: "https://x.com/*",

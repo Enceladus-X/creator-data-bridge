@@ -57,6 +57,19 @@ export function parseInstagramDate(value: string | null | undefined): string | n
   return Number.isNaN(parsed.valueOf()) ? null : parsed.toISOString().slice(0, 10);
 }
 
+export function parseYouTubeStudioDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const dotted = value.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?/);
+  if (dotted) {
+    const [, year, month, day] = dotted;
+    return `${year}-${month?.padStart(2, "0")}-${day?.padStart(2, "0")}`;
+  }
+  const korean = value.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+  if (!korean) return null;
+  const [, year, month, day] = korean;
+  return `${year}-${month?.padStart(2, "0")}-${day?.padStart(2, "0")}`;
+}
+
 export function parseKoreanStudioDate(
   value: string | null | undefined,
   reference: Date,

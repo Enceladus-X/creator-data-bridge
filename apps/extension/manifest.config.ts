@@ -21,6 +21,7 @@ export default defineManifest({
   permissions: ["alarms", "clipboardWrite", "identity", "scripting", "sidePanel", "storage"],
   host_permissions: ["http://127.0.0.1:8787/*", "http://localhost:8787/*"],
   optional_host_permissions: [
+    "https://studio.youtube.com/*",
     "https://www.tiktok.com/*",
     "https://www.instagram.com/*",
     "https://x.com/*",

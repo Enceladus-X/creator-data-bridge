@@ -59,7 +59,7 @@ export function useBrowserCollection() {
   const [state, setState] = useState<CollectionStateResponse>({
     run: null,
     records: [],
-    permissions: { tiktok: false, instagram: false, x: false },
+    permissions: { youtube: false, tiktok: false, instagram: false, x: false },
   });
   const [loading, setLoading] = useState(true);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
