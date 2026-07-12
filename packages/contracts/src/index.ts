@@ -266,6 +266,19 @@ export const collectionRunStateSchema = z.enum([
 ]);
 export type CollectionRunState = z.infer<typeof collectionRunStateSchema>;
 
+export const collectionLogLevelSchema = z.enum(["info", "success", "warning", "error"]);
+export type CollectionLogLevel = z.infer<typeof collectionLogLevelSchema>;
+
+export const collectionLogEntrySchema = z.object({
+  id: z.string().min(1),
+  at: z.string().datetime({ offset: true }),
+  level: collectionLogLevelSchema,
+  platform: browserPlatformSchema.nullable(),
+  message: z.string().min(1),
+  detail: z.string().nullable(),
+});
+export type CollectionLogEntry = z.infer<typeof collectionLogEntrySchema>;
+
 export const collectionRunSchema = z.object({
   id: z.string().min(1),
   state: collectionRunStateSchema,
@@ -274,6 +287,7 @@ export const collectionRunSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   completedAt: z.string().datetime({ offset: true }).nullable(),
   platforms: z.record(browserPlatformSchema, platformCheckpointSchema),
+  logs: z.array(collectionLogEntrySchema).default([]),
 });
 export type CollectionRun = z.infer<typeof collectionRunSchema>;
 

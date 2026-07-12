@@ -616,52 +616,6 @@ body {
   outline: 2px solid #16816b;
   outline-offset: 2px;
 }
-.dashboard-limit-setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 20px;
-  border-top: 1px solid #e5e5e1;
-}
-.dashboard-limit-setting > div:first-child {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.dashboard-limit-setting strong {
-  font-size: 13px;
-}
-.dashboard-limit-setting span {
-  color: #777773;
-  font-size: 11px;
-}
-.dashboard-segmented {
-  display: grid;
-  grid-template-columns: repeat(4, 46px);
-  overflow: hidden;
-  border: 1px solid #d7d7d2;
-  border-radius: 6px;
-}
-.dashboard-segmented-button {
-  width: 46px;
-  height: 34px;
-  cursor: pointer;
-  border-left: 1px solid #e5e5e1;
-  color: #656562;
-  background: #fff;
-  font: inherit;
-  font-size: 11px;
-}
-.dashboard-segmented-button:first-of-type {
-  border-left: 0;
-}
-.dashboard-segmented-button[aria-pressed="true"] {
-  color: #fff;
-  background: #171717;
-  font-weight: 750;
-}
-
 @media (max-width: 980px) {
   .collection-dashboard-shell {
     grid-template-columns: 72px minmax(0, 1fr);
@@ -777,9 +731,5 @@ body {
   }
   .export-facts {
     gap: 12px 0;
-  }
-  .dashboard-limit-setting {
-    align-items: stretch;
-    flex-direction: column;
   }
 }

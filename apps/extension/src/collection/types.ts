@@ -51,7 +51,7 @@ export interface CollectionStateResponse {
 
 export type CollectionMessage =
   | { type: "COLLECTION_GET_STATE" }
-  | { type: "COLLECTION_START"; platforms?: BrowserPlatform[]; itemLimit?: number }
+  | { type: "COLLECTION_START"; platforms?: BrowserPlatform[] }
   | { type: "COLLECTION_CANCEL"; runId: string }
   | { type: "COLLECTION_RETRY_PLATFORM"; runId: string; platform: BrowserPlatform }
   | { type: "COLLECTION_EXPORT_CSV"; runId?: string }

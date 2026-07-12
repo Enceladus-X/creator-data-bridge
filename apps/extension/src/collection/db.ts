@@ -1,4 +1,8 @@
-import type { CollectionRecord, CollectionRun } from "@creator-data-bridge/contracts";
+import {
+  type CollectionRecord,
+  type CollectionRun,
+  collectionRunSchema,
+} from "@creator-data-bridge/contracts";
 
 const databaseName = "creator-data-bridge";
 const databaseVersion = 1;
@@ -72,7 +76,8 @@ export async function getLatestCollectionRun(): Promise<CollectionRun | null> {
   const transaction = database.transaction("runs", "readonly");
   const request = transaction.objectStore("runs").index("createdAt").openCursor(null, "prev");
   const cursor = await requestResult(request);
-  const result = (cursor?.value as CollectionRun | undefined) ?? null;
+  const parsed = collectionRunSchema.safeParse(cursor?.value);
+  const result = parsed.success ? parsed.data : null;
   database.close();
   return result;
 }

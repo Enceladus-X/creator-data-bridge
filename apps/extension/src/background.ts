@@ -30,7 +30,7 @@ async function handleMessage(message: CollectionMessage) {
   }
   if (message.type === "COLLECTION_GET_STATE") return getCollectionState();
   if (message.type === "COLLECTION_START") {
-    return startCollection(message.platforms as BrowserPlatform[] | undefined, message.itemLimit);
+    return startCollection(message.platforms as BrowserPlatform[] | undefined);
   }
   if (message.type === "COLLECTION_CANCEL") return cancelCollection(message.runId);
   if (message.type === "COLLECTION_RETRY_PLATFORM") {

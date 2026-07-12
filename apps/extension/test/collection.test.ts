@@ -10,7 +10,7 @@ import {
 } from "../src/collection/normalize";
 import { normalizeCollectionPreferences } from "../src/collection/preferences";
 import { normalizePlatformPayload } from "../src/collection/records";
-import { buildPlatformSummaries } from "../src/dashboard/CollectionDashboard";
+import { buildPlatformSummaries, formatMetric } from "../src/dashboard/CollectionDashboard";
 
 describe("collection normalization", () => {
   it.each([
@@ -39,24 +39,22 @@ describe("collection normalization", () => {
 });
 
 describe("collection preferences", () => {
-  it("keeps the supported platform order and a valid item limit", () => {
+  it("keeps the supported platform order and drops the legacy item limit", () => {
     expect(
       normalizeCollectionPreferences({
         enabledPlatforms: ["instagram", "unsupported", "tiktok"],
         itemLimit: 250,
       }),
     ).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabledPlatforms: ["youtube", "tiktok", "instagram"],
-      itemLimit: 250,
     });
   });
 
-  it("enables the newly added YouTube collector and repairs an invalid limit", () => {
+  it("enables the newly added YouTube collector for legacy preferences", () => {
     expect(normalizeCollectionPreferences({ enabledPlatforms: [], itemLimit: 999 })).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabledPlatforms: ["youtube"],
-      itemLimit: 100,
     });
   });
 
@@ -68,9 +66,8 @@ describe("collection preferences", () => {
         itemLimit: 100,
       }),
     ).toEqual({
-      schemaVersion: 2,
+      schemaVersion: 3,
       enabledPlatforms: ["tiktok", "instagram"],
-      itemLimit: 100,
     });
   });
 });
@@ -183,6 +180,11 @@ describe("YouTube Studio normalization", () => {
 });
 
 describe("collection dashboard aggregation", () => {
+  it("renders full metric numbers instead of compact Korean units", () => {
+    expect(formatMetric(2200)).toBe("2,200");
+    expect(formatMetric(145000)).toBe("145,000");
+  });
+
   it("aggregates known metrics without turning unavailable values into displayed data", () => {
     const records: CollectionRecord[] = [
       {

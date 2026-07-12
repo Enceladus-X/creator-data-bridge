@@ -1,7 +1,9 @@
 import {
   type BrowserPlatform,
+  type CollectionLogLevel,
   type CollectionRun,
   collectionRunSchema,
+  type PlatformCollectionState,
 } from "@creator-data-bridge/contracts";
 import {
   collectInstagramProfilePage,
@@ -45,6 +47,13 @@ import {
 const currentRunStorageKey = "collection.currentRun";
 const handlesStorageKey = "collection.handles";
 const defaultPlatforms: BrowserPlatform[] = ["youtube", "tiktok", "x", "instagram"];
+const internalItemLimit = 500;
+const platformLabels: Record<BrowserPlatform, string> = {
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  x: "X",
+  instagram: "Instagram",
+};
 const selectorVersions: Record<BrowserPlatform, string> = {
   youtube: "youtube-studio-v2",
   tiktok: "tiktok-studio-v1",
@@ -54,6 +63,24 @@ const selectorVersions: Record<BrowserPlatform, string> = {
 
 let activeCollection: Promise<void> | null = null;
 const cancelledRuns = new Set<string>();
+
+function pushLog(
+  run: CollectionRun,
+  level: CollectionLogLevel,
+  message: string,
+  platform: BrowserPlatform | null = null,
+  detail: string | null = null,
+) {
+  run.logs.push({
+    id: crypto.randomUUID(),
+    at: new Date().toISOString(),
+    level,
+    platform,
+    message,
+    detail,
+  });
+  if (run.logs.length > 500) run.logs.splice(0, run.logs.length - 500);
+}
 
 class CollectionFailure extends Error {
   constructor(
@@ -81,12 +108,13 @@ function createCheckpoint(platform: BrowserPlatform) {
 
 function createRun(platforms: BrowserPlatform[], itemLimit: number): CollectionRun {
   const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
   return collectionRunSchema.parse({
     id,
     state: "preflight",
     requestedPlatforms: platforms,
     itemLimit,
-    createdAt: new Date().toISOString(),
+    createdAt,
     completedAt: null,
     platforms: {
       youtube: createCheckpoint("youtube"),
@@ -94,6 +122,16 @@ function createRun(platforms: BrowserPlatform[], itemLimit: number): CollectionR
       instagram: createCheckpoint("instagram"),
       x: createCheckpoint("x"),
     },
+    logs: [
+      {
+        id: crypto.randomUUID(),
+        at: createdAt,
+        level: "info",
+        platform: null,
+        message: "수집 실행을 생성했습니다.",
+        detail: platforms.map((platform) => platformLabels[platform]).join(", "),
+      },
+    ],
   });
 }
 
@@ -117,12 +155,61 @@ async function updatePlatform(
   platform: BrowserPlatform,
   changes: Partial<CollectionRun["platforms"][BrowserPlatform]>,
 ) {
-  run.platforms[platform] = {
-    ...run.platforms[platform],
+  const previous = run.platforms[platform];
+  const next = {
+    ...previous,
     ...changes,
     platform,
     lastHeartbeatAt: new Date().toISOString(),
   };
+  run.platforms[platform] = next;
+
+  if (changes.state && changes.state !== previous.state) {
+    const stateMessages: Partial<Record<PlatformCollectionState, string>> = {
+      opening: "수집 페이지를 열고 있습니다.",
+      waiting: "페이지가 준비되기를 기다리고 있습니다.",
+      collecting: "페이지에서 콘텐츠를 읽기 시작했습니다.",
+      normalizing: "수집 데이터를 CSV 형식으로 정리하고 있습니다.",
+      completed: "플랫폼 수집을 완료했습니다.",
+      failed: "플랫폼 수집에 실패했습니다.",
+      cancelled: "플랫폼 수집을 중단했습니다.",
+    };
+    const level: CollectionLogLevel =
+      changes.state === "completed"
+        ? "success"
+        : changes.state === "failed"
+          ? "error"
+          : changes.state === "cancelled"
+            ? "warning"
+            : "info";
+    const detail = [
+      next.accountHandle ? `계정 ${next.accountHandle}` : "",
+      next.rowsWritten ? `저장 ${next.rowsWritten}행` : "",
+      next.warningCodes.length ? `경고 ${next.warningCodes.join(", ")}` : "",
+      next.errorCode ? `${next.errorCode}: ${next.errorMessage ?? "원인 미상"}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    pushLog(
+      run,
+      level,
+      stateMessages[changes.state] ?? `상태가 ${changes.state}(으)로 변경됐습니다.`,
+      platform,
+      detail || null,
+    );
+  }
+  if (changes.accountHandle && changes.accountHandle !== previous.accountHandle) {
+    pushLog(run, "info", "수집 계정을 확인했습니다.", platform, changes.accountHandle);
+  }
+  if (changes.discovered !== undefined && changes.discovered > previous.discovered) {
+    pushLog(
+      run,
+      "info",
+      `콘텐츠 ${changes.discovered.toLocaleString("ko-KR")}개를 확인했습니다.`,
+      platform,
+      `이전 확인 ${previous.discovered.toLocaleString("ko-KR")}개`,
+    );
+  }
   await persistRun(run);
 }
 
@@ -557,14 +644,40 @@ async function finalizeRun(run: CollectionRun) {
       : completed.length > 0
         ? "partially_completed"
         : "failed";
+  const totalRows = checkpoints.reduce((total, checkpoint) => total + checkpoint.rowsWritten, 0);
+  const level: CollectionLogLevel =
+    run.state === "completed" ? "success" : run.state === "failed" ? "error" : "warning";
+  pushLog(
+    run,
+    level,
+    run.state === "completed"
+      ? "전체 수집을 완료했습니다."
+      : run.state === "cancelled"
+        ? "전체 수집이 중단됐습니다."
+        : run.state === "failed"
+          ? "수집된 플랫폼이 없습니다."
+          : "일부 플랫폼 수집을 완료했습니다.",
+    null,
+    `완료 ${completed.length}/${checkpoints.length}개 플랫폼 · 저장 ${totalRows.toLocaleString("ko-KR")}행`,
+  );
   await persistRun(run);
   cancelledRuns.delete(run.id);
 }
 
 async function executeRun(run: CollectionRun) {
   run.state = "running";
+  pushLog(run, "info", "사이트 권한을 확인하고 수집을 시작합니다.");
   await persistRun(run);
   const permissions = await permissionStates();
+  const permittedCount = run.requestedPlatforms.filter((platform) => permissions[platform]).length;
+  pushLog(
+    run,
+    permittedCount === run.requestedPlatforms.length ? "success" : "warning",
+    "사이트 권한 확인을 마쳤습니다.",
+    null,
+    `허용 ${permittedCount}/${run.requestedPlatforms.length}개 플랫폼`,
+  );
+  await persistRun(run);
 
   for (const platform of run.requestedPlatforms) {
     if (cancelledRuns.has(run.id)) break;
@@ -581,10 +694,7 @@ async function executeRun(run: CollectionRun) {
   await finalizeRun(run);
 }
 
-export async function startCollection(
-  platforms = defaultPlatforms,
-  itemLimit = 100,
-): Promise<CollectionRun> {
+export async function startCollection(platforms = defaultPlatforms): Promise<CollectionRun> {
   const current = await readCurrentRun();
   if (current && ["preflight", "running"].includes(current.state) && activeCollection)
     return current;
@@ -593,7 +703,7 @@ export async function startCollection(
   );
   const run = createRun(
     uniquePlatforms.length ? uniquePlatforms : defaultPlatforms,
-    Math.min(Math.max(itemLimit, 1), 500),
+    internalItemLimit,
   );
   await persistRun(run);
   activeCollection = executeRun(run).finally(() => {
@@ -608,6 +718,7 @@ export async function cancelCollection(runId: string) {
   if (run?.id === runId) {
     run.state = "cancelled";
     run.completedAt = new Date().toISOString();
+    pushLog(run, "warning", "사용자가 수집 중단을 요청했습니다.");
     await persistRun(run);
   }
   return run;
@@ -635,6 +746,7 @@ export async function retryCollectionPlatform(runId: string, platform: BrowserPl
   run.state = "running";
   run.completedAt = null;
   run.platforms[platform] = createCheckpoint(platform);
+  pushLog(run, "info", "플랫폼 수집을 다시 시도합니다.", platform);
   await persistRun(run);
   activeCollection = (async () => {
     await collectAndStorePlatform(run, platform);
@@ -697,5 +809,12 @@ export async function recoverInterruptedCollection() {
   );
   run.state = hasCompleted ? "partially_completed" : "failed";
   run.completedAt = new Date().toISOString();
+  pushLog(
+    run,
+    "warning",
+    "브라우저 중단으로 실행을 복구했습니다.",
+    null,
+    "완료되지 않은 플랫폼은 다시 수집해야 합니다.",
+  );
   await persistRun(run);
 }

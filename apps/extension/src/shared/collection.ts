@@ -66,11 +66,9 @@ export function useBrowserCollection() {
   const [preferences, setPreferences] = useState<CollectionPreferences>(
     defaultCollectionPreferences,
   );
-  const [autoDownloadArmed, setAutoDownloadArmed] = useState(false);
-  const [autoExporting, setAutoExporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<number | null>(null);
-  const autoExportRunId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!runtimeAvailable()) {
@@ -114,16 +112,13 @@ export function useBrowserCollection() {
   }, [refresh, running]);
 
   const start = useCallback(
-    async (platforms: BrowserPlatform[], itemLimit: number) => {
+    async (platforms: BrowserPlatform[]) => {
       setError(null);
       try {
-        const startedRun = await sendMessage<CollectionRun>({
+        await sendMessage<CollectionRun>({
           type: "COLLECTION_START",
           platforms,
-          itemLimit,
         });
-        autoExportRunId.current = startedRun.id;
-        setAutoDownloadArmed(true);
         await refresh(true);
       } catch (startError) {
         setError(startError instanceof Error ? startError.message : "수집을 시작하지 못했습니다.");
@@ -131,40 +126,6 @@ export function useBrowserCollection() {
     },
     [refresh],
   );
-
-  useEffect(() => {
-    const run = state.run;
-    if (!run || autoExportRunId.current !== run.id) return;
-    if (["preflight", "running"].includes(run.state)) return;
-    if (run.state === "cancelled") {
-      autoExportRunId.current = null;
-      setAutoDownloadArmed(false);
-      return;
-    }
-    if (!["completed", "partially_completed", "failed"].includes(run.state)) return;
-
-    const targetRunId = autoExportRunId.current;
-    autoExportRunId.current = null;
-    setAutoDownloadArmed(false);
-    if (state.records.length === 0) {
-      setError("수집된 데이터가 없어 CSV를 만들지 못했습니다.");
-      return;
-    }
-
-    setAutoExporting(true);
-    void sendMessage<CsvExportResponse>({
-      type: "COLLECTION_EXPORT_CSV",
-      runId: targetRunId,
-    })
-      .then((payload) => {
-        saveCsvFile(payload);
-        setError(null);
-      })
-      .catch((exportError) =>
-        setError(exportError instanceof Error ? exportError.message : "CSV를 저장하지 못했습니다."),
-      )
-      .finally(() => setAutoExporting(false));
-  }, [state.records, state.run]);
 
   const cancel = useCallback(async () => {
     if (!state.run) return;
@@ -197,6 +158,7 @@ export function useBrowserCollection() {
   );
 
   const exportCsv = useCallback(async () => {
+    setExporting(true);
     try {
       const payload = await sendMessage<CsvExportResponse>({
         type: "COLLECTION_EXPORT_CSV",
@@ -205,6 +167,8 @@ export function useBrowserCollection() {
       saveCsvFile(payload);
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "CSV를 저장하지 못했습니다.");
+    } finally {
+      setExporting(false);
     }
   }, [state.run]);
 
@@ -242,13 +206,6 @@ export function useBrowserCollection() {
     [persistPreferences, preferences],
   );
 
-  const setItemLimit = useCallback(
-    (itemLimit: CollectionPreferences["itemLimit"]) => {
-      persistPreferences({ ...preferences, itemLimit });
-    },
-    [persistPreferences, preferences],
-  );
-
   const snapshot: CollectionSnapshot = useMemo(
     () => ({ run: state.run, records: state.records }),
     [state.records, state.run],
@@ -261,8 +218,7 @@ export function useBrowserCollection() {
     preferencesLoading,
     running,
     preferences,
-    autoDownloadArmed,
-    autoExporting,
+    exporting,
     error,
     refresh,
     start,
@@ -271,6 +227,5 @@ export function useBrowserCollection() {
     exportCsv,
     clear,
     togglePlatform,
-    setItemLimit,
   };
 }

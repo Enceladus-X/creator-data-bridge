@@ -28,12 +28,9 @@ type DashboardView = (typeof dashboardViews)[number]["id"];
 type MetricKey = "views" | "likes" | "comments";
 type ContentSort = MetricKey | "publishedAt";
 
-const metricFormatter = new Intl.NumberFormat("ko-KR", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+const metricFormatter = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
 
-function formatMetric(value: number | null | undefined) {
+export function formatMetric(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : metricFormatter.format(value);
 }
 
@@ -453,16 +450,12 @@ function ExportPanel({
 
 function SettingsPanel({
   enabledPlatforms,
-  itemLimit,
   disabled,
   onToggle,
-  onLimit,
 }: {
   enabledPlatforms: BrowserPlatform[];
-  itemLimit: 50 | 100 | 250 | 500;
   disabled: boolean;
   onToggle: (platform: BrowserPlatform) => void;
-  onLimit: (limit: 50 | 100 | 250 | 500) => void;
 }) {
   return (
     <section
@@ -503,27 +496,6 @@ function SettingsPanel({
           );
         })}
       </div>
-      <div className="dashboard-limit-setting">
-        <div>
-          <strong>플랫폼별 최대 콘텐츠</strong>
-          <span>수집 시간이 길어지면 낮은 범위를 선택하세요.</span>
-        </div>
-        <fieldset className="dashboard-segmented">
-          <legend className="sr-only">플랫폼별 최대 콘텐츠</legend>
-          {([50, 100, 250, 500] as const).map((limit) => (
-            <button
-              className="dashboard-segmented-button"
-              type="button"
-              aria-pressed={itemLimit === limit}
-              disabled={disabled}
-              onClick={() => onLimit(limit)}
-              key={limit}
-            >
-              {limit}
-            </button>
-          ))}
-        </fieldset>
-      </div>
     </section>
   );
 }
@@ -542,7 +514,6 @@ export function CollectionDashboard() {
     refresh,
     exportCsv,
     togglePlatform,
-    setItemLimit,
   } = useBrowserCollection();
   const records = snapshot.records;
   const run = snapshot.run;
@@ -670,10 +641,8 @@ export function CollectionDashboard() {
           {activeView === "settings" ? (
             <SettingsPanel
               enabledPlatforms={preferences.enabledPlatforms}
-              itemLimit={preferences.itemLimit}
               disabled={running || preferencesLoading}
               onToggle={togglePlatform}
-              onLimit={setItemLimit}
             />
           ) : null}
         </div>

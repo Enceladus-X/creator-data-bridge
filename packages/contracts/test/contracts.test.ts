@@ -139,5 +139,74 @@ describe("browser collection contracts", () => {
     });
 
     expect(run.state).toBe("partially_completed");
+    expect(run.logs).toEqual([]);
+  });
+
+  it("validates detailed collection log entries", () => {
+    const log = {
+      id: "log-1",
+      at: "2026-07-12T02:07:08.055Z",
+      level: "success",
+      platform: "youtube",
+      message: "플랫폼 수집을 완료했습니다.",
+      detail: "저장 5행",
+    };
+    const run = collectionRunSchema.parse({
+      id: "run-with-log",
+      state: "completed",
+      requestedPlatforms: ["youtube"],
+      itemLimit: 500,
+      createdAt: "2026-07-12T02:00:00.000Z",
+      completedAt: "2026-07-12T02:07:08.055Z",
+      platforms: {
+        youtube: {
+          platform: "youtube",
+          state: "completed",
+          accountHandle: "UC123",
+          discovered: 4,
+          rowsWritten: 5,
+          warningCodes: [],
+          errorCode: null,
+          errorMessage: null,
+          lastHeartbeatAt: "2026-07-12T02:07:08.055Z",
+        },
+        tiktok: {
+          platform: "tiktok",
+          state: "pending",
+          accountHandle: null,
+          discovered: 0,
+          rowsWritten: 0,
+          warningCodes: [],
+          errorCode: null,
+          errorMessage: null,
+          lastHeartbeatAt: null,
+        },
+        instagram: {
+          platform: "instagram",
+          state: "pending",
+          accountHandle: null,
+          discovered: 0,
+          rowsWritten: 0,
+          warningCodes: [],
+          errorCode: null,
+          errorMessage: null,
+          lastHeartbeatAt: null,
+        },
+        x: {
+          platform: "x",
+          state: "pending",
+          accountHandle: null,
+          discovered: 0,
+          rowsWritten: 0,
+          warningCodes: [],
+          errorCode: null,
+          errorMessage: null,
+          lastHeartbeatAt: null,
+        },
+      },
+      logs: [log],
+    });
+
+    expect(run.logs[0]).toEqual(log);
   });
 });

@@ -1,5 +1,6 @@
 import type {
   BrowserPlatform,
+  CollectionLogEntry,
   CollectionRecord,
   PlatformCheckpoint,
 } from "@creator-data-bridge/contracts";
@@ -12,9 +13,12 @@ import {
   LoaderCircle,
   Play,
   RefreshCw,
+  ScrollText,
+  Settings,
   Square,
   Trash2,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { browserPlatforms } from "../collection/preferences";
 import { openDashboard } from "../shared/chrome";
 import { requestAllPlatformPermissions, useBrowserCollection } from "../shared/collection";
@@ -22,7 +26,7 @@ import { platforms } from "../shared/platforms";
 
 const statusLabels: Record<PlatformCheckpoint["state"], string> = {
   pending: "대기",
-  opening: "수집 화면 여는 중",
+  opening: "페이지 여는 중",
   waiting: "페이지 준비 중",
   collecting: "콘텐츠 읽는 중",
   normalizing: "데이터 정리 중",
@@ -41,12 +45,21 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+function formatLogTime(value: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
 function runLabel(state: string | undefined) {
   if (state === "running" || state === "preflight") return "수집 중";
   if (state === "completed") return "수집 완료";
-  if (state === "partially_completed") return "일부 수집 완료";
+  if (state === "partially_completed") return "일부 완료";
   if (state === "failed") return "수집 실패";
-  if (state === "cancelled") return "수집 중단됨";
+  if (state === "cancelled") return "수집 중단";
   return "준비됨";
 }
 
@@ -94,10 +107,10 @@ function PlatformStatus({
   const detail = !selected
     ? "수집에서 제외됨"
     : !permitted
-      ? "첫 실행 때 사이트 권한을 요청합니다"
+      ? "다음 수집 시 사이트 권한을 요청합니다"
       : (checkpoint?.errorMessage ??
         (checkpoint?.accountHandle
-          ? `${checkpoint.accountHandle} · 콘텐츠 ${checkpoint.discovered}개`
+          ? `${checkpoint.accountHandle} · 콘텐츠 ${checkpoint.discovered.toLocaleString("ko-KR")}개`
           : statusLabels[checkpoint?.state ?? "pending"]));
 
   return (
@@ -134,10 +147,7 @@ function PlatformStatus({
             <RefreshCw size={15} />
           </button>
         ) : null}
-        <label
-          className="platform-switch"
-          title={`${metadata.label} 수집 ${selected ? "끄기" : "켜기"}`}
-        >
+        <label className="platform-switch" title={`${metadata.label} 수집 설정`}>
           <input
             type="checkbox"
             checked={selected}
@@ -152,7 +162,54 @@ function PlatformStatus({
   );
 }
 
+function ExecutionLog({ logs }: { logs: CollectionLogEntry[] }) {
+  const logEnd = useRef<HTMLDivElement | null>(null);
+  const lastLogId = logs.at(-1)?.id;
+
+  useEffect(() => {
+    if (lastLogId) logEnd.current?.scrollIntoView({ block: "nearest" });
+  }, [lastLogId]);
+
+  return (
+    <section className="execution-log" aria-labelledby="execution-log-title">
+      <div className="section-heading log-heading">
+        <div>
+          <ScrollText size={16} />
+          <h2 id="execution-log-title">전체 실행 로그</h2>
+        </div>
+        <span>{logs.length}건</span>
+      </div>
+      <div className="log-list" role="log" aria-live="polite">
+        {logs.length ? (
+          logs.map((entry) => {
+            const metadata = entry.platform
+              ? platforms.find((platform) => platform.id === entry.platform)
+              : null;
+            return (
+              <div className={`log-row ${entry.level}`} key={entry.id}>
+                <time dateTime={entry.at}>{formatLogTime(entry.at)}</time>
+                <span className="log-level-dot" aria-hidden="true" />
+                <div>
+                  <strong>
+                    {metadata ? <span>{metadata.label}</span> : null}
+                    {entry.message}
+                  </strong>
+                  {entry.detail ? <small>{entry.detail}</small> : null}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="log-empty">수집을 실행하면 단계별 기록이 여기에 표시됩니다.</div>
+        )}
+        <div ref={logEnd} />
+      </div>
+    </section>
+  );
+}
+
 export function App() {
+  const [activeView, setActiveView] = useState<"main" | "settings">("main");
   const {
     snapshot,
     permissions,
@@ -160,8 +217,7 @@ export function App() {
     preferencesLoading,
     running,
     preferences,
-    autoDownloadArmed,
-    autoExporting,
+    exporting,
     error,
     refresh,
     start,
@@ -170,7 +226,6 @@ export function App() {
     exportCsv,
     clear,
     togglePlatform,
-    setItemLimit,
   } = useBrowserCollection();
   const run = snapshot.run;
   const records = snapshot.records;
@@ -193,7 +248,7 @@ export function App() {
         return;
       }
     }
-    await start(selectedPlatforms, preferences.itemLimit);
+    await start(selectedPlatforms);
   };
 
   return (
@@ -206,22 +261,37 @@ export function App() {
           <strong>Creator Data Bridge</strong>
           <span>{formatDate(run?.completedAt ?? run?.createdAt)}</span>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          title="전체 대시보드"
-          onClick={() => openDashboard()}
-        >
-          <LayoutDashboard size={18} />
-        </button>
+        <div className="panel-header-actions">
+          <button
+            className="icon-button"
+            type="button"
+            title="전체 대시보드"
+            onClick={() => openDashboard()}
+          >
+            <LayoutDashboard size={18} />
+          </button>
+          <button
+            className={`icon-button ${activeView === "settings" ? "active" : ""}`}
+            type="button"
+            title={activeView === "settings" ? "수집 화면" : "수집 설정"}
+            aria-pressed={activeView === "settings"}
+            onClick={() => setActiveView(activeView === "settings" ? "main" : "settings")}
+          >
+            <Settings size={18} />
+          </button>
+        </div>
       </header>
 
       <section className="collection-heading">
         <div>
-          <span className="eyebrow">CHANNEL SNAPSHOT</span>
-          <h1>채널 CSV 수집</h1>
+          <span className="eyebrow">
+            {activeView === "settings" ? "COLLECTION SETTINGS" : "CHANNEL SNAPSHOT"}
+          </span>
+          <h1>{activeView === "settings" ? "수집 플랫폼" : "채널 데이터 수집"}</h1>
         </div>
-        <span className={`run-badge ${run?.state ?? "idle"}`}>{runLabel(run?.state)}</span>
+        <span className={`run-badge ${run?.state ?? "idle"}`}>
+          {activeView === "settings" ? `${selectedPlatforms.length}개 사용` : runLabel(run?.state)}
+        </span>
       </section>
 
       {error ? (
@@ -231,149 +301,97 @@ export function App() {
         </div>
       ) : null}
 
-      <section className="platform-section" aria-label="수집 플랫폼">
-        <div className="section-heading">
-          <h2>수집 설정</h2>
-          <span>{selectedPlatforms.length}개 플랫폼 사용</span>
-        </div>
-        <div className="platform-list">
-          {browserPlatforms.map((platform) => (
-            <PlatformStatus
-              key={platform}
-              platform={platform}
-              checkpoint={run?.platforms[platform]}
-              permitted={permissions[platform]}
-              selected={selectedPlatforms.includes(platform)}
-              disabled={loading || preferencesLoading || running}
-              onToggle={() => togglePlatform(platform)}
-              onRetry={() => void retry(platform)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="limit-section" aria-label="플랫폼별 수집 개수">
-        <div>
-          <h2>플랫폼별 최대 콘텐츠</h2>
-          <span>오래된 게시물까지 스크롤해 수집합니다</span>
-        </div>
-        <div className="limit-control">
-          {[50, 100, 250, 500].map((limit) => (
-            <button
-              key={limit}
-              type="button"
-              className={preferences.itemLimit === limit ? "active" : ""}
-              aria-pressed={preferences.itemLimit === limit}
-              disabled={running}
-              onClick={() => setItemLimit(limit as 50 | 100 | 250 | 500)}
-            >
-              {limit}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {run ? (
-        <section className="progress-section" aria-label="수집 진행 상태">
-          <div className="progress-copy">
-            <span>{running ? "플랫폼 데이터를 읽고 있습니다" : runLabel(run.state)}</span>
-            <strong>{progress}%</strong>
-          </div>
-          <div className="progress-track" aria-hidden="true">
-            <span style={{ width: `${progress}%` }} />
-          </div>
-        </section>
-      ) : null}
-
-      <section className="collection-metrics" aria-label="수집 결과 요약">
-        <div>
-          <span>콘텐츠</span>
-          <strong>{content.length}</strong>
-        </div>
-        <div>
-          <span>CSV 행</span>
-          <strong>{records.length}</strong>
-        </div>
-        <div>
-          <span>제한 지표</span>
-          <strong>{unavailable}</strong>
-        </div>
-      </section>
-
-      {content.length > 0 ? (
-        <section className="content-preview">
+      {activeView === "settings" ? (
+        <section className="platform-section" aria-label="수집 플랫폼 설정">
           <div className="section-heading">
-            <h2>최근 수집 콘텐츠</h2>
-            <span>{content.length}개</span>
+            <div>
+              <h2>플랫폼 선택</h2>
+              <p>설정은 즉시 저장되며 다음 수집부터 적용됩니다.</p>
+            </div>
           </div>
-          <div className="preview-list">
-            {content.slice(0, 4).map((record) => (
-              <a
-                href={record.contentUrl}
-                target="_blank"
-                rel="noreferrer"
-                key={`${record.platform}-${record.contentId}`}
-              >
-                <span>{record.platform}</span>
-                <strong>{record.title || record.contentId}</strong>
-                <small>
-                  {record.views === null
-                    ? "조회 —"
-                    : `조회 ${record.views.toLocaleString("ko-KR")}`}
-                </small>
-              </a>
+          <div className="platform-list">
+            {browserPlatforms.map((platform) => (
+              <PlatformStatus
+                key={platform}
+                platform={platform}
+                checkpoint={run?.platforms[platform]}
+                permitted={permissions[platform]}
+                selected={selectedPlatforms.includes(platform)}
+                disabled={loading || preferencesLoading || running}
+                onToggle={() => togglePlatform(platform)}
+                onRetry={() => void retry(platform)}
+              />
             ))}
           </div>
         </section>
-      ) : null}
-
-      <section className="panel-actions">
-        {running ? (
-          <button
-            className="secondary-button stop-button"
-            type="button"
-            onClick={() => void cancel()}
-          >
-            <Square size={15} />
-            수집 중단
-          </button>
-        ) : (
-          <button
-            className="primary-button collect-button"
-            type="button"
-            disabled={
-              loading || preferencesLoading || selectedPlatforms.length === 0 || autoExporting
-            }
-            onClick={() => void startAll()}
-          >
-            {loading || autoExporting ? (
-              <LoaderCircle size={17} className="spinning" />
+      ) : (
+        <>
+          <section className="panel-actions" aria-label="수집 및 내보내기">
+            {running ? (
+              <button
+                className="secondary-button stop-button"
+                type="button"
+                onClick={() => void cancel()}
+              >
+                <Square size={15} />
+                수집 중단
+              </button>
             ) : (
-              <Play size={17} />
+              <button
+                className="primary-button collect-button"
+                type="button"
+                disabled={loading || preferencesLoading || selectedPlatforms.length === 0}
+                onClick={() => void startAll()}
+              >
+                {loading ? <LoaderCircle size={17} className="spinning" /> : <Play size={17} />}
+                수집
+              </button>
             )}
-            {selectedPlatforms.length === 0
-              ? "수집할 플랫폼을 선택하세요"
-              : missingPermissions.length > 0
-                ? "권한 허용 후 수집 · CSV 다운로드"
-                : "수집하고 CSV 다운로드"}
-          </button>
-        )}
-        <button
-          className="secondary-button export-button"
-          type="button"
-          disabled={records.length === 0 || running || autoExporting}
-          onClick={() => void exportCsv()}
-        >
-          <FileDown size={16} />
-          CSV 저장
-        </button>
-      </section>
+            <button
+              className="secondary-button export-button"
+              type="button"
+              disabled={records.length === 0 || running || exporting}
+              onClick={() => void exportCsv()}
+            >
+              {exporting ? <LoaderCircle size={16} className="spinning" /> : <FileDown size={16} />}
+              CSV 다운로드
+            </button>
+          </section>
+
+          {run ? (
+            <section className="progress-section" aria-label="수집 진행 상태">
+              <div className="progress-copy">
+                <span>{running ? "플랫폼 데이터를 읽고 있습니다" : runLabel(run.state)}</span>
+                <strong>{progress}%</strong>
+              </div>
+              <div className="progress-track" aria-hidden="true">
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            </section>
+          ) : null}
+
+          <section className="collection-metrics" aria-label="수집 결과 요약">
+            <div>
+              <span>콘텐츠</span>
+              <strong>{content.length.toLocaleString("ko-KR")}</strong>
+            </div>
+            <div>
+              <span>CSV 행</span>
+              <strong>{records.length.toLocaleString("ko-KR")}</strong>
+            </div>
+            <div>
+              <span>제한 지표</span>
+              <strong>{unavailable.toLocaleString("ko-KR")}</strong>
+            </div>
+          </section>
+
+          <ExecutionLog logs={run?.logs ?? []} />
+        </>
+      )}
 
       <footer className="panel-footer">
         <span className="status-dot online" />
-        <span>
-          {autoDownloadArmed ? "수집 완료 후 CSV 자동 저장" : "로컬 저장 · 외부 전송 없음"}
-        </span>
+        <span>로컬 저장 · 외부 전송 없음</span>
         <button
           type="button"
           title="수집 기록 삭제"
